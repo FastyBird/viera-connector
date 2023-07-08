@@ -1,0 +1,118 @@
+{
+  "name": "fastybird/viera-connector",
+  "type": "fastybird-connector",
+  "description": "FastyBird IoT connector for Panasonic Viera televisions",
+  "keywords": [
+    "php",
+    "iot",
+    "connector",
+    "nette",
+    "fb",
+    "viera",
+    "fastybird",
+    "panasonic",
+    "television"
+  ],
+  "homepage": "https://www.fastybird.com",
+  "license": "Apache-2.0",
+  "authors": [
+    {
+      "name": "FastyBird s.r.o.",
+      "email": "code@fastybird.com",
+      "homepage": "https://www.fastybird.com/"
+    },
+    {
+      "name": "Adam Kadlec",
+      "email": "adam.kadlec@fastybird.com"
+    }
+  ],
+  "support": {
+    "email": "code@fastybird.com",
+    "issues": "https://github.com/FastyBird/fastybird/issues",
+    "source": "https://github.com/FastyBird/viera-connector"
+  },
+  "require": {
+    "php": ">=8.1.0",
+    "ext-iconv": "*",
+    "ext-openssl": "*",
+    "ext-simplexml": "*",
+    "clue/multicast-react": "^1.1",
+    "cweagans/composer-patches": "^1.7",
+    "evenement/evenement": "^3.0",
+    "fastybird/bootstrap-library": "dev-main",
+    "fastybird/datetime-factory": "^0.6",
+    "fastybird/devices-module": "dev-main",
+    "fastybird/metadata-library": "dev-main",
+    "guzzlehttp/guzzle": "^7.5",
+    "nette/di": "^3.0",
+    "psr/log": "^1.1|^3.0",
+    "react/async": "^4.0",
+    "react/datagram": "^1.8",
+    "react/http": "^1.7",
+    "symplify/vendor-patches": "^11.2"
+  },
+  "require-dev": {
+    "brianium/paratest": "^7.1",
+    "contributte/translation": "^2.0",
+    "dg/bypass-finals": "^1.4",
+    "infection/infection": "^0.26",
+    "orisai/coding-standard": "^3.2",
+    "pds/skeleton": "^1.0",
+    "php-parallel-lint/php-parallel-lint": "^1.3",
+    "phpstan/extension-installer": "^1.1",
+    "phpstan/phpstan": "1.10.11",
+    "phpstan/phpstan-deprecation-rules": "^1.0",
+    "phpstan/phpstan-doctrine": "^1.3",
+    "phpstan/phpstan-nette": "^1.1",
+    "phpstan/phpstan-phpunit": "^1.1",
+    "phpstan/phpstan-strict-rules": "^1.4",
+    "phpunit/phpunit": "^10.0",
+    "staabm/annotate-pull-request-from-checkstyle": "^1.8",
+    "tracy/tracy": "^2.9"
+  },
+  "autoload": {
+    "psr-4": {
+      "FastyBird\\Connector\\Viera\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "FastyBird\\Connector\\Viera\\Tests\\Cases\\Unit\\": "tests/cases/unit",
+      "FastyBird\\Connector\\Viera\\Tests\\Tools\\": "tests/tools"
+    }
+  },
+  "config": {
+    "sort-packages": true,
+    "allow-plugins": {
+      "cweagans/composer-patches": true,
+      "dealerdirect/phpcodesniffer-composer-installer": true,
+      "phpstan/extension-installer": true,
+      "infection/extension-installer": true,
+      "php-http/discovery": false
+    }
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-main": "1.0-dev"
+    },
+    "patches": {
+      "nettrine/orm": {
+        "Enable connection overrides": "https://raw.githubusercontent.com/FastyBird/libraries-patches/master/nettrine-orm-src-managerregistry-php.patch"
+      },
+      "react/event-loop": {
+        "Bug: Use native return type": "https://raw.githubusercontent.com/FastyBird/libraries-patches/master/react-event-loop-src-loop-php.patch"
+      },
+      "dg/bypass-finals": {
+        "Bug: mkdir check": "https://raw.githubusercontent.com/FastyBird/libraries-patches/master/dg-bypass-finals-src-nativewrapper-php.patch"
+      }
+    }
+  },
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "https://github.com/mathsolver/mathsolver.git"
+    }
+  ],
+  "minimum-stability": "dev",
+  "prefer-stable": true
+}

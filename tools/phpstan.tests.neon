@@ -1,0 +1,6 @@
+includes:
+    - phpstan.base.neon
+    - phpstan.config.tests.neon
+
+parameters:
+    resultCachePath: %currentWorkingDirectory%/var/tools/PHPStan/resultCache.tests.php
