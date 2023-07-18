@@ -114,8 +114,6 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	private Entities\API\Session|null $session = null;
 
-	private Log\LoggerInterface $logger;
-
 	public function __construct(
 		private readonly string $identifier,
 		private readonly string $ipAddress,
@@ -125,12 +123,10 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		private readonly string|null $macAddress,
 		private readonly HttpClientFactory $httpClientFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
-		Log\LoggerInterface|null $logger = null,
+		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 	)
 	{
 		$this->isEncrypted = $this->appId !== null && $this->encryptionKey !== null;
-
-		$this->logger = $logger ?? new Log\NullLogger();
 	}
 
 	/**

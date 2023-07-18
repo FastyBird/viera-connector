@@ -15,7 +15,6 @@
 
 namespace FastyBird\Connector\Viera\Entities\Clients;
 
-use FastyBird\Connector\Viera\Entities\Messages\Entity;
 use Nette;
 
 /**

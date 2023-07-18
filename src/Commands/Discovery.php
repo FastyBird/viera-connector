@@ -81,8 +81,6 @@ class Discovery extends Console\Command\Command
 
 	private Clients\Discovery|null $client = null;
 
-	private Log\LoggerInterface $logger;
-
 	public function __construct(
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
 		private readonly Clients\DiscoveryFactory $clientFactory,
@@ -93,12 +91,10 @@ class Discovery extends Console\Command\Command
 		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicePropertiesManager,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
-		Log\LoggerInterface|null $logger = null,
+		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 		string|null $name = null,
 	)
 	{
-		$this->logger = $logger ?? new Log\NullLogger();
-
 		parent::__construct($name);
 	}
 

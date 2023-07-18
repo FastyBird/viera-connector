@@ -43,20 +43,16 @@ final class Messages
 	/** @var SplQueue<Entities\Messages\Entity> */
 	private SplQueue $queue;
 
-	private Log\LoggerInterface $logger;
-
 	/**
 	 * @param array<Consumer> $consumers
 	 */
 	public function __construct(
 		array $consumers,
-		Log\LoggerInterface|null $logger = null,
+		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 	)
 	{
 		$this->consumers = new SplObjectStorage();
 		$this->queue = new SplQueue();
-
-		$this->logger = $logger ?? new Log\NullLogger();
 
 		foreach ($consumers as $consumer) {
 			$this->consumers->attach($consumer);

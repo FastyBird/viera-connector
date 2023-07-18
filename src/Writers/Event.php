@@ -52,16 +52,13 @@ class Event implements Writer, EventDispatcher\EventSubscriberInterface
 	/** @var array<string, Clients\Client> */
 	private array $clients = [];
 
-	private Log\LoggerInterface $logger;
-
 	public function __construct(
 		private readonly Helpers\Property $propertyStateHelper,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStates,
-		Log\LoggerInterface|null $logger = null,
+		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 	)
 	{
-		$this->logger = $logger ?? new Log\NullLogger();
 	}
 
 	public static function getSubscribedEvents(): array

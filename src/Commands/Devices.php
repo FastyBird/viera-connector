@@ -93,8 +93,6 @@ class Devices extends Console\Command\Command
 
 	private EventLoop\TimerInterface|null $consumerTimer = null;
 
-	private Log\LoggerInterface $logger;
-
 	public function __construct(
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
 		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
@@ -110,12 +108,10 @@ class Devices extends Console\Command\Command
 		private readonly Persistence\ManagerRegistry $managerRegistry,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
-		Log\LoggerInterface|null $logger = null,
+		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 		string|null $name = null,
 	)
 	{
-		$this->logger = $logger ?? new Log\NullLogger();
-
 		parent::__construct($name);
 	}
 

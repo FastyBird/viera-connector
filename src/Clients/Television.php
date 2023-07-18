@@ -74,8 +74,6 @@ final class Television implements Client
 
 	private EventLoop\TimerInterface|null $handlerTimer = null;
 
-	private Log\LoggerInterface $logger;
-
 	public function __construct(
 		private readonly Entities\VieraConnector $connector,
 		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
@@ -88,10 +86,9 @@ final class Television implements Client
 		private readonly Writers\Writer $writer,
 		private readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
 		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelPropertiesRepository,
-		Log\LoggerInterface|null $logger = null,
+		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 	)
 	{
-		$this->logger = $logger ?? new Log\NullLogger();
 	}
 
 	/**
