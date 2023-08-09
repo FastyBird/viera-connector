@@ -25,6 +25,7 @@ use FastyBird\Connector\Viera\Types;
 use FastyBird\Connector\Viera\Writers;
 use FastyBird\DateTimeFactory;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Metadata\Entities as MetadataEntities;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
@@ -144,7 +145,7 @@ final class Television implements Client
 	public function writeChannelProperty(
 		Entities\VieraDevice $device,
 		DevicesEntities\Channels\Channel $channel,
-		DevicesEntities\Channels\Properties\Dynamic $property,
+		DevicesEntities\Channels\Properties\Dynamic|MetadataEntities\DevicesModule\ChannelDynamicProperty $property,
 	): Promise\PromiseInterface
 	{
 		$client = $this->getDeviceClient($device);

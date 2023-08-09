@@ -4,7 +4,7 @@ namespace FastyBird\Connector\Viera\Tests\Cases\Unit\API;
 
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Exceptions;
-use FastyBird\Connector\Viera\Tests\Cases\Unit\BaseTestCase;
+use PHPUnit\Framework\TestCase;
 use function array_fill;
 use function array_values;
 use function assert;
@@ -14,7 +14,7 @@ use function pack;
 use function strval;
 use function unpack;
 
-final class TransformerTest extends BaseTestCase
+final class TransformerTest extends TestCase
 {
 
 	/**

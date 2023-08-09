@@ -2,6 +2,7 @@
 
 namespace FastyBird\Connector\Viera\Tests\Cases\Unit\DI;
 
+use Error;
 use FastyBird\Connector\Viera\Hydrators;
 use FastyBird\Connector\Viera\Schemas;
 use FastyBird\Connector\Viera\Tests\Cases\Unit\BaseTestCase;
@@ -14,6 +15,7 @@ final class VieraExtensionTest extends BaseTestCase
 	/**
 	 * @throws BootstrapExceptions\InvalidArgument
 	 * @throws Nette\DI\MissingServiceException
+	 * @throws Error
 	 */
 	public function testServicesRegistration(): void
 	{

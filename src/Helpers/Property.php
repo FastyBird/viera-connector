@@ -15,6 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Helpers;
 
+use FastyBird\Library\Metadata\Entities as MetadataEntities;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -48,11 +49,15 @@ final class Property
 	 * @throws MetadataExceptions\InvalidState
 	 */
 	public function setValue(
-		DevicesEntities\Devices\Properties\Dynamic|DevicesEntities\Channels\Properties\Dynamic $property,
+		// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
+		DevicesEntities\Devices\Properties\Dynamic|DevicesEntities\Channels\Properties\Dynamic|MetadataEntities\DevicesModule\DeviceDynamicProperty|MetadataEntities\DevicesModule\ChannelDynamicProperty $property,
 		Utils\ArrayHash $data,
 	): void
 	{
-		if ($property instanceof DevicesEntities\Devices\Properties\Dynamic) {
+		if (
+			$property instanceof DevicesEntities\Devices\Properties\Dynamic
+			|| $property instanceof MetadataEntities\DevicesModule\DeviceDynamicProperty
+		) {
 			$this->devicePropertiesStateManager->setValue($property, $data);
 		} else {
 			$this->channelPropertiesStateManager->setValue($property, $data);

@@ -26,7 +26,6 @@ and is licensed under [Apache2](http://www.apache.org/licenses/LICENSE-2.0).
 - Support for televisions which need PIN authentication
 - Automated device discovery feature, which automatically detects and adds Panasonic Viera televisions to the FastyBird ecosystem
 - Panasonic Viera Connector management for the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) [devices module](https://github.com/FastyBird/devices-module), allowing users to easily manage and monitor Panasonic Viera devices
-- Advanced device management features, such as controlling power status, measuring energy consumption, and reading sensor data
 - [{JSON:API}](https://jsonapi.org/) schemas for full API access, providing a standardized and consistent way for developers to access and manipulate Panasonic Viera device data
 - Regular updates with new features and bug fixes, ensuring that the Panasonic Viera Connector is always up-to-date and reliable.
 
