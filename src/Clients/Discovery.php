@@ -17,16 +17,18 @@ namespace FastyBird\Connector\Viera\Clients;
 
 use Clue\React\Multicast;
 use Evenement;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
-use FastyBird\Connector\Viera\Consumers;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
+use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Connector\Viera\Queue;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Nette;
-use Psr\Log;
 use React\Datagram;
 use React\EventLoop;
+use RuntimeException;
 use SplObjectStorage;
 use Throwable;
 use function array_key_exists;
@@ -38,6 +40,7 @@ use function preg_match;
 use function React\Async\async;
 use function React\Async\await;
 use function sprintf;
+use function strval;
 use function trim;
 
 /**
@@ -71,18 +74,16 @@ final class Discovery implements Evenement\EventEmitterInterface
 
 	private Datagram\SocketInterface|null $sender = null;
 
-	private Multicast\Factory $serverFactory;
-
 	public function __construct(
 		private readonly Entities\VieraConnector $connector,
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
-		private readonly Consumers\Messages $consumer,
+		private readonly Queue\Queue $queue,
+		private readonly Helpers\Entity $entityHelper,
+		private readonly Viera\Logger $logger,
+		private readonly Multicast\Factory $serverFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
-		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 	)
 	{
-		$this->serverFactory = new Multicast\Factory($this->eventLoop);
-
 		$this->discoveredLocalDevices = new SplObjectStorage();
 	}
 
@@ -91,7 +92,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 		$this->discoveredLocalDevices = new SplObjectStorage();
 
 		$this->logger->debug(
-			'Starting televisions discovery',
+			'Starting devices discovery',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'discovery-client',
@@ -142,7 +143,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 		// Searching timeout
 		$this->handlerTimer = $this->eventLoop->addTimer(
 			self::SEARCH_TIMEOUT,
-			async(function (): void {
+			function (): void {
 				$this->sender?->close();
 
 				$this->discoveredLocalDevices->rewind();
@@ -156,11 +157,11 @@ final class Discovery implements Evenement\EventEmitterInterface
 				$this->discoveredLocalDevices = new SplObjectStorage();
 
 				if (count($devices) > 0) {
-					$devices = $this->handleFoundLocalDevices($devices);
+					$this->handleFoundLocalDevices($devices);
 				}
 
 				$this->emit('finished', [$devices]);
-			}),
+			},
 		);
 
 		$data = "M-SEARCH * HTTP/1.1\r\n";
@@ -183,6 +184,10 @@ final class Discovery implements Evenement\EventEmitterInterface
 		$this->sender?->close();
 	}
 
+	/**
+	 * @throws Exceptions\Runtime
+	 * @throws RuntimeException
+	 */
 	private function handleDiscoveredDevice(string $id, string $host, int $port): void
 	{
 		try {
@@ -245,13 +250,21 @@ final class Discovery implements Evenement\EventEmitterInterface
 					$apps = $televisionApi->getApps(false);
 				}
 			}
-		} catch (Exceptions\TelevisionApiCall | Exceptions\Encrypt | Exceptions\Decrypt $ex) {
+		} catch (Exceptions\TelevisionApiCall $ex) {
 			$this->logger->error(
-				'Calling television api failed',
+				'Calling device api failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 					'type' => 'discovery-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'request' => [
+						'method' => $ex->getRequest()?->getMethod(),
+						'url' => $ex->getRequest() !== null ? strval($ex->getRequest()->getUri()) : null,
+						'body' => $ex->getRequest()?->getBody()->getContents(),
+					],
+					'response' => [
+						'body' => $ex->getResponse()?->getBody()->getContents(),
+					],
 				],
 			);
 
@@ -269,66 +282,66 @@ final class Discovery implements Evenement\EventEmitterInterface
 			return;
 		}
 
-		$this->discoveredLocalDevices->attach(new Entities\Clients\DiscoveredDevice(
-			$id,
-			$host,
-			$port,
-			$specs->getFriendlyName() ?? $specs->getModelName(),
-			trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
-			$specs->getManufacturer(),
-			$specs->getSerialNumber(),
-			$needsAuthorization,
-			$apps !== null ? array_map(
-			// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-				static fn (Entities\API\Application $application): Entities\Clients\DeviceApplication => new Entities\Clients\DeviceApplication(
-					$application->getId(),
-					$application->getName(),
-				),
-				$apps->getApps(),
-			) : [],
-		));
+		$this->discoveredLocalDevices->attach(
+			$this->entityHelper->create(
+				Entities\Clients\DiscoveredDevice::class,
+				[
+					'identifier' => $id,
+					'ip_address' => $host,
+					'port' => $port,
+					'name' => $specs->getFriendlyName() ?? $specs->getModelName(),
+					'model' => trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
+					'manufacturer' => $specs->getManufacturer(),
+					'serial_number' => $specs->getSerialNumber(),
+					'encrypted' => $needsAuthorization,
+					'applications' => $apps !== null ? array_map(
+						static fn (Entities\API\Application $application): array => [
+							'id' => $application->getId(),
+							'name' => $application->getName(),
+						],
+						$apps->getApps(),
+					) : [],
+				],
+			),
+		);
 	}
 
 	/**
 	 * @param array<Entities\Clients\DiscoveredDevice> $devices
 	 *
-	 * @return array<Entities\Messages\ConfigureDevice>
+	 * @throws Exceptions\Runtime
 	 */
-	private function handleFoundLocalDevices(array $devices): array
+	private function handleFoundLocalDevices(array $devices): void
 	{
-		$processedDevices = [];
-
 		foreach ($devices as $device) {
-			$message = new Entities\Messages\ConfigureDevice(
-				$this->connector->getId(),
-				$device->getIdentifier(),
-				$device->getIpAddress(),
-				$device->getPort(),
-				$device->getName(),
-				$device->getModel(),
-				$device->getManufacturer(),
-				$device->getSerialNumber(),
-				null,
-				$device->isEncrypted(),
-				null,
-				null,
-				[],
-				array_map(
-				// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-					static fn (Entities\Clients\DeviceApplication $application): Entities\Messages\DeviceApplication => new Entities\Messages\DeviceApplication(
-						$application->getId(),
-						$application->getName(),
-					),
-					$device->getApplications(),
+			$this->queue->append(
+				$this->entityHelper->create(
+					Entities\Messages\StoreDevice::class,
+					[
+						'connector' => $this->connector->getId()->toString(),
+						'identifier' => $device->getIdentifier(),
+						'ip_address' => $device->getIpAddress(),
+						'port' => $device->getPort(),
+						'name' => $device->getName(),
+						'model' => $device->getModel(),
+						'manufacturer' => $device->getManufacturer(),
+						'serial_number' => $device->getSerialNumber(),
+						'mac_address' => null,
+						'encrypted' => $device->isEncrypted(),
+						'app_id' => null,
+						'encryption_key' => null,
+						'hdmi' => [],
+						'applications' => array_map(
+							static fn (Entities\Clients\DeviceApplication $application): array => [
+								'id' => $application->getId(),
+								'name' => $application->getName(),
+							],
+							$device->getApplications(),
+						),
+					],
 				),
 			);
-
-			$processedDevices[] = $message;
-
-			$this->consumer->append($message);
 		}
-
-		return $processedDevices;
 	}
 
 }

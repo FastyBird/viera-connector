@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+        <u:X_LaunchApp xmlns:u="urn:panasonic-com:service:p00NetworkControl:1">
+            <X_AppType>vc_app</X_AppType>
+            <X_LaunchKeyword>product_id=0010000200000001</X_LaunchKeyword>
+        </u:X_LaunchApp>
+    </s:Body>
+</s:Envelope>

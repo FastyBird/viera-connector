@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * ConfigureDevice.php
+ * StoreDevice.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -15,7 +15,8 @@
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
-use Nette;
+use FastyBird\Library\Bootstrap\ObjectMapper as BootstrapObjectMapper;
+use Orisai\ObjectMapper;
 use Ramsey\Uuid;
 use function array_map;
 
@@ -27,30 +28,72 @@ use function array_map;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class ConfigureDevice implements Entity
+final class StoreDevice implements Entity
 {
-
-	use Nette\SmartObject;
 
 	/**
 	 * @param array<DeviceHdmi> $hdmi
 	 * @param array<DeviceApplication> $applications
 	 */
 	public function __construct(
+		#[BootstrapObjectMapper\Rules\UuidValue()]
 		private readonly Uuid\UuidInterface $connector,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $identifier,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
+		#[ObjectMapper\Modifiers\FieldName('ip_address')]
 		private readonly string $ipAddress,
+		#[ObjectMapper\Rules\IntValue(unsigned: true)]
 		private readonly int $port,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
 		private readonly string|null $name,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
 		private readonly string|null $model,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
 		private readonly string|null $manufacturer,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('serial_number')]
 		private readonly string|null $serialNumber,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('mac_address')]
 		private readonly string|null $macAddress,
+		#[ObjectMapper\Rules\BoolValue()]
 		private readonly bool $encrypted,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('app_id')]
 		private readonly string|null $appId,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('encryption_key')]
 		private readonly string|null $encryptionKey,
-		private readonly array $hdmi,
-		private readonly array $applications,
+		#[ObjectMapper\Rules\ArrayOf(
+			new ObjectMapper\Rules\MappedObjectValue(DeviceHdmi::class),
+		)]
+		private readonly array $hdmi = [],
+		#[ObjectMapper\Rules\ArrayOf(
+			new ObjectMapper\Rules\MappedObjectValue(DeviceApplication::class),
+		)]
+		private readonly array $applications = [],
 	)
 	{
 	}

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+        <u:X_GetVectorInfoResponse xmlns:u="urn:panasonic-com:service:p00NetworkControl:1">
+            <X_PortNumber>55000</X_PortNumber>
+        </u:X_GetVectorInfoResponse>
+    </s:Body>
+</s:Envelope>

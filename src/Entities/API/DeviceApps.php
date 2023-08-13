@@ -16,6 +16,7 @@
 namespace FastyBird\Connector\Viera\Entities\API;
 
 use FastyBird\Connector\Viera\Entities;
+use Orisai\ObjectMapper;
 use function array_map;
 
 /**
@@ -32,7 +33,12 @@ class DeviceApps implements Entities\API\Entity
 	/**
 	 * @param array<Application> $apps
 	 */
-	public function __construct(private readonly array $apps = [])
+	public function __construct(
+		#[ObjectMapper\Rules\ArrayOf(
+			new ObjectMapper\Rules\MappedObjectValue(Application::class),
+		)]
+		private readonly array $apps = [],
+	)
 	{
 	}
 

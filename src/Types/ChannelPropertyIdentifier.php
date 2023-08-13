@@ -32,69 +32,69 @@ class ChannelPropertyIdentifier extends Consistence\Enum\Enum
 	/**
 	 * Define device states
 	 */
-	public const IDENTIFIER_STATE = 'state';
+	public const STATE = 'state';
 
-	public const IDENTIFIER_VOLUME = 'volume';
+	public const VOLUME = 'volume';
 
-	public const IDENTIFIER_MUTE = 'mute';
+	public const MUTE = 'mute';
 
-	public const IDENTIFIER_INPUT_SOURCE = 'input_source';
+	public const INPUT_SOURCE = 'input_source';
 
-	public const IDENTIFIER_APPLICATION = 'application';
+	public const APPLICATION = 'application';
 
-	public const IDENTIFIER_HDMI = 'hdmi';
+	public const HDMI = 'hdmi';
 
-	public const IDENTIFIER_KEY_TV = 'key_tv';
+	public const KEY_TV = 'key_tv';
 
-	public const IDENTIFIER_KEY_HOME = 'key_home';
+	public const KEY_HOME = 'key_home';
 
-	public const IDENTIFIER_KEY_CHANNEL_UP = 'key_channel_up';
+	public const KEY_CHANNEL_UP = 'key_channel_up';
 
-	public const IDENTIFIER_KEY_CHANNEL_DOWN = 'key_channel_down';
+	public const KEY_CHANNEL_DOWN = 'key_channel_down';
 
-	public const IDENTIFIER_KEY_VOLUME_UP = 'key_volume_up';
+	public const KEY_VOLUME_UP = 'key_volume_up';
 
-	public const IDENTIFIER_KEY_VOLUME_DOWN = 'key_volume_down';
+	public const KEY_VOLUME_DOWN = 'key_volume_down';
 
-	public const IDENTIFIER_KEY_ARROW_UP = 'key_arrow_up';
+	public const KEY_ARROW_UP = 'key_arrow_up';
 
-	public const IDENTIFIER_KEY_ARROW_DOWN = 'key_arrow_down';
+	public const KEY_ARROW_DOWN = 'key_arrow_down';
 
-	public const IDENTIFIER_KEY_ARROW_LEFT = 'key_arrow_left';
+	public const KEY_ARROW_LEFT = 'key_arrow_left';
 
-	public const IDENTIFIER_KEY_ARROW_RIGHT = 'key_arrow_right';
+	public const KEY_ARROW_RIGHT = 'key_arrow_right';
 
-	public const IDENTIFIER_KEY_0 = 'key_0';
+	public const KEY_0 = 'key_0';
 
-	public const IDENTIFIER_KEY_1 = 'key_1';
+	public const KEY_1 = 'key_1';
 
-	public const IDENTIFIER_KEY_2 = 'key_2';
+	public const KEY_2 = 'key_2';
 
-	public const IDENTIFIER_KEY_3 = 'key_3';
+	public const KEY_3 = 'key_3';
 
-	public const IDENTIFIER_KEY_4 = 'key_4';
+	public const KEY_4 = 'key_4';
 
-	public const IDENTIFIER_KEY_5 = 'key_5';
+	public const KEY_5 = 'key_5';
 
-	public const IDENTIFIER_KEY_6 = 'key_6';
+	public const KEY_6 = 'key_6';
 
-	public const IDENTIFIER_KEY_7 = 'key_7';
+	public const KEY_7 = 'key_7';
 
-	public const IDENTIFIER_KEY_8 = 'key_8';
+	public const KEY_8 = 'key_8';
 
-	public const IDENTIFIER_KEY_9 = 'key_9';
+	public const KEY_9 = 'key_9';
 
-	public const IDENTIFIER_KEY_RED = 'key_red';
+	public const KEY_RED = 'key_red';
 
-	public const IDENTIFIER_KEY_GREEN = 'key_green';
+	public const KEY_GREEN = 'key_green';
 
-	public const IDENTIFIER_KEY_YELLOW = 'key_yellow';
+	public const KEY_YELLOW = 'key_yellow';
 
-	public const IDENTIFIER_KEY_BLUE = 'key_blue';
+	public const KEY_BLUE = 'key_blue';
 
-	public const IDENTIFIER_KEY_OK = 'key_ok';
+	public const KEY_OK = 'key_ok';
 
-	public const IDENTIFIER_KEY_BACK = 'key_back';
+	public const KEY_BACK = 'key_back';
 
 	public function __toString(): string
 	{

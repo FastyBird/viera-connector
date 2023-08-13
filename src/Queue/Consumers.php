@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * Messages.php
+ * Consumers.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -10,29 +10,25 @@
  * @subpackage     Consumers
  * @since          1.0.0
  *
- * @date           21.06.23
+ * @date           10.08.23
  */
 
-namespace FastyBird\Connector\Viera\Consumers;
+namespace FastyBird\Connector\Viera\Queue;
 
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Nette;
-use Psr\Log;
 use SplObjectStorage;
-use SplQueue;
-use function count;
-use function sprintf;
 
 /**
- * Clients message consumer proxy
+ * Clients message queue consumers container
  *
  * @package        FastyBird:VieraConnector!
  * @subpackage     Consumers
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class Messages
+final class Consumers
 {
 
 	use Nette\SmartObject;
@@ -40,56 +36,42 @@ final class Messages
 	/** @var SplObjectStorage<Consumer, null> */
 	private SplObjectStorage $consumers;
 
-	/** @var SplQueue<Entities\Messages\Entity> */
-	private SplQueue $queue;
-
 	/**
 	 * @param array<Consumer> $consumers
 	 */
 	public function __construct(
 		array $consumers,
-		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
+		private readonly Queue $queue,
+		private readonly Viera\Logger $logger,
 	)
 	{
 		$this->consumers = new SplObjectStorage();
-		$this->queue = new SplQueue();
 
 		foreach ($consumers as $consumer) {
-			$this->consumers->attach($consumer);
+			$this->append($consumer);
 		}
-
-		$this->logger->debug(
-			sprintf('Registered %d messages consumers', count($this->consumers)),
-			[
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'consumer',
-			],
-		);
 	}
 
-	public function append(Entities\Messages\Entity $entity): void
+	public function append(Consumer $consumer): void
 	{
-		$this->queue->enqueue($entity);
+		$this->consumers->attach($consumer);
 
 		$this->logger->debug(
-			'Appended new message into consumers queue',
+			'Appended new messages consumer',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'consumer',
-				'message' => $entity->toArray(),
+				'type' => 'consumers',
 			],
 		);
 	}
 
 	public function consume(): void
 	{
-		$this->queue->rewind();
+		$entity = $this->queue->dequeue();
 
-		if ($this->queue->isEmpty()) {
+		if ($entity === false) {
 			return;
 		}
-
-		$entity = $this->queue->dequeue();
 
 		$this->consumers->rewind();
 
@@ -98,7 +80,7 @@ final class Messages
 				'No consumer is registered, messages could not be consumed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'consumer',
+					'type' => 'consumers',
 				],
 			);
 
@@ -115,15 +97,10 @@ final class Messages
 			'Message could not be consumed',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'consumer',
+				'type' => 'consumers',
 				'message' => $entity->toArray(),
 			],
 		);
-	}
-
-	public function isEmpty(): bool
-	{
-		return $this->queue->isEmpty();
 	}
 
 }

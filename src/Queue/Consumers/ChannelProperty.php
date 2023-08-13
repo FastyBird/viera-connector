@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * ConsumeDeviceProperty.php
+ * ChannelProperty.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -13,9 +13,10 @@
  * @date           28.06.23
  */
 
-namespace FastyBird\Connector\Viera\Consumers\Messages;
+namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use Doctrine\DBAL;
+use FastyBird\Connector\Viera;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
@@ -24,7 +25,6 @@ use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette\Utils;
-use Psr\Log;
 use Ramsey\Uuid;
 use function array_merge;
 
@@ -37,12 +37,12 @@ use function array_merge;
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  *
  * @property-read DevicesModels\Channels\ChannelsRepository $channelsRepository
- * @property-read DevicesModels\Channels\Properties\PropertiesRepository $channelPropertiesRepository
+ * @property-read DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository
  * @property-read DevicesModels\Channels\Properties\PropertiesManager $channelsPropertiesManager
  * @property-read DevicesUtilities\Database $databaseHelper
- * @property-read Log\LoggerInterface $logger
+ * @property-read Viera\Logger $logger
  */
-trait ConsumeChannelProperty
+trait ChannelProperty
 {
 
 	/**
@@ -71,7 +71,7 @@ trait ConsumeChannelProperty
 		$findChannelPropertyQuery->byChannelId($channelId);
 		$findChannelPropertyQuery->byIdentifier($identifier);
 
-		$property = $this->channelPropertiesRepository->findOneBy($findChannelPropertyQuery);
+		$property = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
 
 		if ($property !== null && $value === null && $type === DevicesEntities\Channels\Properties\Variable::class) {
 			$this->databaseHelper->transaction(
@@ -98,7 +98,7 @@ trait ConsumeChannelProperty
 			$findChannelPropertyQuery = new DevicesQueries\FindChannelProperties();
 			$findChannelPropertyQuery->byId($property->getId());
 
-			$property = $this->channelPropertiesRepository->findOneBy($findChannelPropertyQuery);
+			$property = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
 
 			if ($property !== null) {
 				$this->databaseHelper->transaction(function () use ($property): void {
@@ -114,7 +114,7 @@ trait ConsumeChannelProperty
 							'id' => $channelId->toString(),
 						],
 						'property' => [
-							'id' => $property->getPlainId(),
+							'id' => $property->getId()->toString(),
 							'identifier' => $identifier,
 						],
 					],
@@ -165,7 +165,7 @@ trait ConsumeChannelProperty
 						'id' => $channelId->toString(),
 					],
 					'property' => [
-						'id' => $property->getPlainId(),
+						'id' => $property->getId()->toString(),
 						'identifier' => $identifier,
 					],
 				],
@@ -200,7 +200,7 @@ trait ConsumeChannelProperty
 						'id' => $channelId->toString(),
 					],
 					'property' => [
-						'id' => $property->getPlainId(),
+						'id' => $property->getId()->toString(),
 						'identifier' => $identifier,
 					],
 				],

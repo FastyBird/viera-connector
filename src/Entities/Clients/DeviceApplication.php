@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\Clients;
 
-use Nette;
+use Orisai\ObjectMapper;
 
 /**
  * Created device application entity
@@ -28,10 +28,10 @@ use Nette;
 final class DeviceApplication implements Entity
 {
 
-	use Nette\SmartObject;
-
 	public function __construct(
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $id,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $name,
 	)
 	{

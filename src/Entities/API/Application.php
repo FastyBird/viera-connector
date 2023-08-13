@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\API;
 
-use FastyBird\Connector\Viera\Entities;
+use Orisai\ObjectMapper;
 
 /**
  * Television app
@@ -25,11 +25,13 @@ use FastyBird\Connector\Viera\Entities;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class Application implements Entities\API\Entity
+class Application implements Entity
 {
 
 	public function __construct(
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $id,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $name,
 	)
 	{

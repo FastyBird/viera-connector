@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\API;
 
-use FastyBird\Connector\Viera\Entities;
+use Orisai\ObjectMapper;
 
 /**
  * Event data entity
@@ -25,11 +25,21 @@ use FastyBird\Connector\Viera\Entities;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class Event implements Entities\API\Entity
+class Event implements Entity
 {
 
 	public function __construct(
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\BoolValue(),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('screen_state')]
 		private readonly bool|null $screenState,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('input_mode')]
 		private readonly string|null $inputMode,
 	)
 	{

@@ -34,7 +34,7 @@ final class VieraDevice extends DevicesSchemas\Devices\Device
 	/**
 	 * Define entity schema type string
 	 */
-	public const SCHEMA_TYPE = MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA . '/device/' . Entities\VieraDevice::DEVICE_TYPE;
+	public const SCHEMA_TYPE = MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA . '/device/' . Entities\VieraDevice::TYPE;
 
 	public function getEntityClass(): string
 	{

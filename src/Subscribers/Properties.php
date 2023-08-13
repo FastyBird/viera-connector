@@ -48,8 +48,8 @@ final class Properties implements Common\EventSubscriber
 	use Nette\SmartObject;
 
 	public function __construct(
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $propertiesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesManager $propertiesManager,
+		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager,
 		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private readonly DevicesModels\Channels\Properties\PropertiesManager $channelsPropertiesManager,
 	)
@@ -105,8 +105,8 @@ final class Properties implements Common\EventSubscriber
 			$entity instanceof DevicesEntities\Channels\Properties\Dynamic
 			&& $entity->getChannel()->getDevice() instanceof Entities\VieraDevice
 			&& (
-				$entity->getIdentifier() === Types\ChannelPropertyIdentifier::IDENTIFIER_HDMI
-				|| $entity->getIdentifier() === Types\ChannelPropertyIdentifier::IDENTIFIER_APPLICATION
+				$entity->getIdentifier() === Types\ChannelPropertyIdentifier::HDMI
+				|| $entity->getIdentifier() === Types\ChannelPropertyIdentifier::APPLICATION
 			)
 		) {
 			$this->configureDeviceInputSource($entity);
@@ -121,43 +121,43 @@ final class Properties implements Common\EventSubscriber
 	{
 		$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
-		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::IDENTIFIER_STATE);
+		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::STATE);
 
-		$stateProperty = $this->propertiesRepository->findOneBy($findDevicePropertyQuery);
+		$stateProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
 		if ($stateProperty !== null && !$stateProperty instanceof DevicesEntities\Devices\Properties\Dynamic) {
-			$this->propertiesManager->delete($stateProperty);
+			$this->devicesPropertiesManager->delete($stateProperty);
 
 			$stateProperty = null;
 		}
 
 		if ($stateProperty !== null) {
-			$this->propertiesManager->update($stateProperty, Utils\ArrayHash::from([
+			$this->devicesPropertiesManager->update($stateProperty, Utils\ArrayHash::from([
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 				'unit' => null,
 				'format' => [
 					MetadataTypes\ConnectionState::STATE_CONNECTED,
 					MetadataTypes\ConnectionState::STATE_DISCONNECTED,
 					MetadataTypes\ConnectionState::STATE_LOST,
-					MetadataTypes\ConnectionState::STATE_STOPPED,
+					MetadataTypes\ConnectionState::STATE_ALERT,
 					MetadataTypes\ConnectionState::STATE_UNKNOWN,
 				],
 				'settable' => false,
 				'queryable' => false,
 			]));
 		} else {
-			$this->propertiesManager->create(Utils\ArrayHash::from([
+			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'device' => $device,
 				'entity' => DevicesEntities\Devices\Properties\Dynamic::class,
-				'identifier' => Types\DevicePropertyIdentifier::IDENTIFIER_STATE,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_STATE),
+				'identifier' => Types\DevicePropertyIdentifier::STATE,
+				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::STATE),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 				'unit' => null,
 				'format' => [
 					MetadataTypes\ConnectionState::STATE_CONNECTED,
 					MetadataTypes\ConnectionState::STATE_DISCONNECTED,
 					MetadataTypes\ConnectionState::STATE_LOST,
-					MetadataTypes\ConnectionState::STATE_STOPPED,
+					MetadataTypes\ConnectionState::STATE_ALERT,
 					MetadataTypes\ConnectionState::STATE_UNKNOWN,
 				],
 				'settable' => false,
@@ -173,32 +173,32 @@ final class Properties implements Common\EventSubscriber
 	private function configureDeviceKeys(DevicesEntities\Channels\Channel $channel): void
 	{
 		$keysProperties = [
-			Types\ActionKey::TV => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_TV,
-			Types\ActionKey::HOME => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_HOME,
-			Types\ActionKey::CH_UP => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_CHANNEL_UP,
-			Types\ActionKey::CH_DOWN => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_CHANNEL_DOWN,
-			Types\ActionKey::VOLUME_UP => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_VOLUME_UP,
-			Types\ActionKey::VOLUME_DOWN => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_VOLUME_DOWN,
-			Types\ActionKey::UP => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_ARROW_UP,
-			Types\ActionKey::DOWN => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_ARROW_DOWN,
-			Types\ActionKey::LEFT => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_ARROW_LEFT,
-			Types\ActionKey::RIGHT => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_ARROW_RIGHT,
-			Types\ActionKey::NUM_0 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_0,
-			Types\ActionKey::NUM_1 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_1,
-			Types\ActionKey::NUM_2 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_2,
-			Types\ActionKey::NUM_3 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_3,
-			Types\ActionKey::NUM_4 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_4,
-			Types\ActionKey::NUM_5 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_5,
-			Types\ActionKey::NUM_6 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_6,
-			Types\ActionKey::NUM_7 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_7,
-			Types\ActionKey::NUM_8 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_8,
-			Types\ActionKey::NUM_9 => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_9,
-			Types\ActionKey::RED => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_RED,
-			Types\ActionKey::GREEN => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_GREEN,
-			Types\ActionKey::YELLOW => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_YELLOW,
-			Types\ActionKey::BLUE => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_BLUE,
-			Types\ActionKey::ENTER => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_OK,
-			Types\ActionKey::RETURN => Types\ChannelPropertyIdentifier::IDENTIFIER_KEY_BACK,
+			Types\ActionKey::TV => Types\ChannelPropertyIdentifier::KEY_TV,
+			Types\ActionKey::HOME => Types\ChannelPropertyIdentifier::KEY_HOME,
+			Types\ActionKey::CH_UP => Types\ChannelPropertyIdentifier::KEY_CHANNEL_UP,
+			Types\ActionKey::CH_DOWN => Types\ChannelPropertyIdentifier::KEY_CHANNEL_DOWN,
+			Types\ActionKey::VOLUME_UP => Types\ChannelPropertyIdentifier::KEY_VOLUME_UP,
+			Types\ActionKey::VOLUME_DOWN => Types\ChannelPropertyIdentifier::KEY_VOLUME_DOWN,
+			Types\ActionKey::UP => Types\ChannelPropertyIdentifier::KEY_ARROW_UP,
+			Types\ActionKey::DOWN => Types\ChannelPropertyIdentifier::KEY_ARROW_DOWN,
+			Types\ActionKey::LEFT => Types\ChannelPropertyIdentifier::KEY_ARROW_LEFT,
+			Types\ActionKey::RIGHT => Types\ChannelPropertyIdentifier::KEY_ARROW_RIGHT,
+			Types\ActionKey::NUM_0 => Types\ChannelPropertyIdentifier::KEY_0,
+			Types\ActionKey::NUM_1 => Types\ChannelPropertyIdentifier::KEY_1,
+			Types\ActionKey::NUM_2 => Types\ChannelPropertyIdentifier::KEY_2,
+			Types\ActionKey::NUM_3 => Types\ChannelPropertyIdentifier::KEY_3,
+			Types\ActionKey::NUM_4 => Types\ChannelPropertyIdentifier::KEY_4,
+			Types\ActionKey::NUM_5 => Types\ChannelPropertyIdentifier::KEY_5,
+			Types\ActionKey::NUM_6 => Types\ChannelPropertyIdentifier::KEY_6,
+			Types\ActionKey::NUM_7 => Types\ChannelPropertyIdentifier::KEY_7,
+			Types\ActionKey::NUM_8 => Types\ChannelPropertyIdentifier::KEY_8,
+			Types\ActionKey::NUM_9 => Types\ChannelPropertyIdentifier::KEY_9,
+			Types\ActionKey::RED => Types\ChannelPropertyIdentifier::KEY_RED,
+			Types\ActionKey::GREEN => Types\ChannelPropertyIdentifier::KEY_GREEN,
+			Types\ActionKey::YELLOW => Types\ChannelPropertyIdentifier::KEY_YELLOW,
+			Types\ActionKey::BLUE => Types\ChannelPropertyIdentifier::KEY_BLUE,
+			Types\ActionKey::ENTER => Types\ChannelPropertyIdentifier::KEY_OK,
+			Types\ActionKey::RETURN => Types\ChannelPropertyIdentifier::KEY_BACK,
 		];
 
 		foreach ($keysProperties as $actionKey => $identifier) {
@@ -275,7 +275,7 @@ final class Properties implements Common\EventSubscriber
 
 		$findChannelProperty = new DevicesQueries\FindChannelProperties();
 		$findChannelProperty->forChannel($channel);
-		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::IDENTIFIER_HDMI);
+		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
 
 		$hdmiProperty = $this->channelsPropertiesRepository->findOneBy(
 			$findChannelProperty,
@@ -288,7 +288,7 @@ final class Properties implements Common\EventSubscriber
 
 		$findChannelProperty = new DevicesQueries\FindChannelProperties();
 		$findChannelProperty->forChannel($channel);
-		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::IDENTIFIER_APPLICATION);
+		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
 
 		$applicationProperty = $this->channelsPropertiesRepository->findOneBy(
 			$findChannelProperty,
@@ -303,7 +303,7 @@ final class Properties implements Common\EventSubscriber
 
 		$findChannelProperty = new DevicesQueries\FindChannelProperties();
 		$findChannelProperty->forChannel($channel);
-		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::IDENTIFIER_INPUT_SOURCE);
+		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::INPUT_SOURCE);
 
 		$inputSourceProperty = $this->channelsPropertiesRepository->findOneBy(
 			$findChannelProperty,
@@ -316,8 +316,8 @@ final class Properties implements Common\EventSubscriber
 					[
 						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 						'channel' => $channel,
-						'identifier' => Types\ChannelPropertyIdentifier::IDENTIFIER_INPUT_SOURCE,
-						'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_INPUT_SOURCE),
+						'identifier' => Types\ChannelPropertyIdentifier::INPUT_SOURCE,
+						'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 						'settable' => true,
 						'queryable' => false,

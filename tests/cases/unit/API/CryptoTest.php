@@ -14,7 +14,7 @@ use function pack;
 use function strval;
 use function unpack;
 
-final class TransformerTest extends TestCase
+final class CryptoTest extends TestCase
 {
 
 	/**
@@ -59,9 +59,9 @@ final class TransformerTest extends TestCase
 
 		$payload = 'test_message_content';
 
-		$encoded = API\Transformer::encryptPayload($payload, $key, $iv, $hmacKey);
+		$encoded = API\Crypto::encryptPayload($payload, $key, $iv, $hmacKey);
 
-		$result = API\Transformer::decryptPayload($encoded, $key, $iv, $hmacKey);
+		$result = API\Crypto::decryptPayload($encoded, $key, $iv, $hmacKey);
 
 		self::assertSame($payload, $result);
 	}

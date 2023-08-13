@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
-use Nette;
+use FastyBird\Library\Bootstrap\ObjectMapper as BootstrapObjectMapper;
 use Ramsey\Uuid;
 
 /**
@@ -29,11 +29,11 @@ use Ramsey\Uuid;
 abstract class Device implements Entity
 {
 
-	use Nette\SmartObject;
-
 	public function __construct(
+		#[BootstrapObjectMapper\Rules\UuidValue()]
 		private readonly Uuid\UuidInterface $connector,
-		private readonly string $identifier,
+		#[BootstrapObjectMapper\Rules\UuidValue()]
+		private readonly Uuid\UuidInterface $device,
 	)
 	{
 	}
@@ -43,9 +43,9 @@ abstract class Device implements Entity
 		return $this->connector;
 	}
 
-	public function getIdentifier(): string
+	public function getDevice(): Uuid\UuidInterface
 	{
-		return $this->identifier;
+		return $this->device;
 	}
 
 	/**
@@ -54,7 +54,8 @@ abstract class Device implements Entity
 	public function toArray(): array
 	{
 		return [
-			'identifier' => $this->getIdentifier(),
+			'connector' => $this->getConnector()->toString(),
+			'device' => $this->getDevice()->toString(),
 		];
 	}
 

@@ -1,33 +1,35 @@
 <?php declare(strict_types = 1);
 
 /**
- * Consumer.php
+ * FindDevices.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queries
  * @since          1.0.0
  *
- * @date           21.06.23
+ * @date           10.08.23
  */
 
-namespace FastyBird\Connector\Viera\Consumers;
+namespace FastyBird\Connector\Viera\Queries;
 
 use FastyBird\Connector\Viera\Entities;
+use FastyBird\Module\Devices\Queries as DevicesQueries;
 
 /**
- * Clients messages consumer interface
+ * Find devices entities query
+ *
+ * @template T of Entities\VieraDevice
+ * @extends  DevicesQueries\FindDevices<T>
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queries
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-interface Consumer
+class FindDevices extends DevicesQueries\FindDevices
 {
-
-	public function consume(Entities\Messages\Entity $entity): bool;
 
 }

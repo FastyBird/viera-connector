@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * ChannelPropertyState.php
+ * StoreChannelPropertyState.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -15,8 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
-use DateTimeInterface;
-use FastyBird\Library\Metadata\Types as MetadataTypes;
+use Orisai\ObjectMapper;
 use Ramsey\Uuid;
 use function array_merge;
 
@@ -28,16 +27,24 @@ use function array_merge;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class ChannelPropertyState extends Device
+final class StoreChannelPropertyState extends Device
 {
 
 	public function __construct(
 		Uuid\UuidInterface $connector,
-		string $device,
+		Uuid\UuidInterface $device,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $channel,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $property,
-		// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-		private readonly bool|float|int|string|DateTimeInterface|MetadataTypes\ButtonPayload|MetadataTypes\SwitchPayload|MetadataTypes\CoverPayload|null $state,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\BoolValue(),
+			new ObjectMapper\Rules\FloatValue(),
+			new ObjectMapper\Rules\IntValue(),
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(castEmptyString: true),
+		])]
+		private readonly bool|float|int|string|null $value,
 	)
 	{
 		parent::__construct($connector, $device);
@@ -52,10 +59,10 @@ final class ChannelPropertyState extends Device
 	{
 		return $this->property;
 	}
-	// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-	public function getState(): bool|float|int|string|DateTimeInterface|MetadataTypes\ButtonPayload|MetadataTypes\SwitchPayload|MetadataTypes\CoverPayload|null
+
+	public function getValue(): bool|float|int|string|null
 	{
-		return $this->state;
+		return $this->value;
 	}
 
 	/**
@@ -66,7 +73,7 @@ final class ChannelPropertyState extends Device
 		return array_merge(parent::toArray(), [
 			'channel' => $this->getChannel(),
 			'property' => $this->getProperty(),
-			'state' => $this->getState(),
+			'value' => $this->getValue(),
 		]);
 	}
 

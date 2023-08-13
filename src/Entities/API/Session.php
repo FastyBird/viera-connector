@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\API;
 
-use FastyBird\Connector\Viera\Entities;
+use Orisai\ObjectMapper;
 
 /**
  * Authorize pin code entity
@@ -25,14 +25,30 @@ use FastyBird\Connector\Viera\Entities;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class Session implements Entities\API\Entity
+class Session implements Entity
 {
 
 	public function __construct(
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $key,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $iv,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('hmac_key')]
 		private readonly string $hmacKey,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
 		private string|null $id = null,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\IntValue(unsigned: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('seq_num')]
 		private int|null $seqNum = null,
 	)
 	{
@@ -92,7 +108,7 @@ class Session implements Entities\API\Entity
 			'iv' => $this->getIv(),
 			'hmac_key' => $this->getHmacKey(),
 			'id' => $this->getId(),
-			'seq_nu,' => $this->getSeqNum(),
+			'seq_num,' => $this->getSeqNum(),
 		];
 	}
 

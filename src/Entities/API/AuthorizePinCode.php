@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\API;
 
-use FastyBird\Connector\Viera\Entities;
+use Orisai\ObjectMapper;
 
 /**
  * Authorize pin code entity
@@ -25,11 +25,21 @@ use FastyBird\Connector\Viera\Entities;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class AuthorizePinCode implements Entities\API\Entity
+class AuthorizePinCode implements Entity
 {
 
 	public function __construct(
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('app_id')]
 		private readonly string|null $appId = null,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('encryption_key')]
 		private readonly string|null $encryptionKey = null,
 	)
 	{

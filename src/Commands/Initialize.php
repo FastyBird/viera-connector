@@ -17,16 +17,17 @@ namespace FastyBird\Connector\Viera\Commands;
 
 use Doctrine\DBAL;
 use Doctrine\Persistence;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use Nette\Localization;
 use Nette\Utils;
-use Psr\Log;
 use Symfony\Component\Console;
 use Symfony\Component\Console\Input;
 use Symfony\Component\Console\Output;
@@ -54,17 +55,13 @@ class Initialize extends Console\Command\Command
 
 	public const NAME = 'fb:viera-connector:initialize';
 
-	private const CHOICE_QUESTION_CREATE_CONNECTOR = 'Create new connector configuration';
-
-	private const CHOICE_QUESTION_EDIT_CONNECTOR = 'Edit existing connector configuration';
-
-	private const CHOICE_QUESTION_DELETE_CONNECTOR = 'Delete existing connector configuration';
-
 	public function __construct(
+		private readonly Viera\Logger $logger,
 		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
 		private readonly DevicesModels\Connectors\ConnectorsManager $connectorsManager,
+		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
 		private readonly Persistence\ManagerRegistry $managerRegistry,
-		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
+		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)
 	{
@@ -91,13 +88,13 @@ class Initialize extends Console\Command\Command
 	{
 		$io = new Style\SymfonyStyle($input, $output);
 
-		$io->title('Viera connector - initialization');
+		$io->title($this->translator->translate('//viera-connector.cmd.initialize.title'));
 
-		$io->note('This action will create|update|delete connector configuration.');
+		$io->note($this->translator->translate('//viera-connector.cmd.initialize.subtitle'));
 
 		if ($input->getOption('no-interaction') === false) {
 			$question = new Console\Question\ConfirmationQuestion(
-				'Would you like to continue?',
+				$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
 				false,
 			);
 
@@ -108,28 +105,7 @@ class Initialize extends Console\Command\Command
 			}
 		}
 
-		$question = new Console\Question\ChoiceQuestion(
-			'What would you like to do?',
-			[
-				0 => self::CHOICE_QUESTION_CREATE_CONNECTOR,
-				1 => self::CHOICE_QUESTION_EDIT_CONNECTOR,
-				2 => self::CHOICE_QUESTION_DELETE_CONNECTOR,
-			],
-		);
-
-		$question->setErrorMessage('Selected answer: "%s" is not valid.');
-
-		$whatToDo = $io->askQuestion($question);
-
-		if ($whatToDo === self::CHOICE_QUESTION_CREATE_CONNECTOR) {
-			$this->createNewConfiguration($io);
-
-		} elseif ($whatToDo === self::CHOICE_QUESTION_EDIT_CONNECTOR) {
-			$this->editExistingConfiguration($io);
-
-		} elseif ($whatToDo === self::CHOICE_QUESTION_DELETE_CONNECTOR) {
-			$this->deleteExistingConfiguration($io);
-		}
+		$this->askInitializeAction($io);
 
 		return Console\Command\Command::SUCCESS;
 	}
@@ -139,20 +115,24 @@ class Initialize extends Console\Command\Command
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 */
-	private function createNewConfiguration(Style\SymfonyStyle $io): void
+	private function createConfiguration(Style\SymfonyStyle $io): void
 	{
-		$question = new Console\Question\Question('Provide connector identifier');
+		$question = new Console\Question\Question(
+			$this->translator->translate('//viera-connector.cmd.initialize.questions.provide.identifier'),
+		);
 
-		$question->setValidator(function (string|null $answer) {
-			if ($answer !== '' && $answer !== null) {
-				$findConnectorQuery = new DevicesQueries\FindConnectors();
+		$question->setValidator(function ($answer) {
+			if ($answer !== null) {
+				$findConnectorQuery = new Queries\FindConnectors();
 				$findConnectorQuery->byIdentifier($answer);
 
 				if ($this->connectorsRepository->findOneBy(
 					$findConnectorQuery,
 					Entities\VieraConnector::class,
 				) !== null) {
-					throw new Exceptions\Runtime('This identifier is already used');
+					throw new Exceptions\Runtime(
+						$this->translator->translate('//viera-connector.cmd.initialize.messages.identifier.used'),
+					);
 				}
 			}
 
@@ -180,7 +160,7 @@ class Initialize extends Console\Command\Command
 		}
 
 		if ($identifier === '') {
-			$io->error('Connector identifier have to provided');
+			$io->error($this->translator->translate('//viera-connector.cmd.initialize.messages.identifier.missing'));
 
 			return;
 		}
@@ -200,10 +180,12 @@ class Initialize extends Console\Command\Command
 			// Commit all changes into database
 			$this->getOrmConnection()->commit();
 
-			$io->success(sprintf(
-				'New connector "%s" was successfully created',
-				$connector->getName() ?? $connector->getIdentifier(),
-			));
+			$io->success(
+				$this->translator->translate(
+					'//viera-connector.cmd.initialize.messages.create.success',
+					['name' => $connector->getName() ?? $connector->getIdentifier()],
+				),
+			);
 		} catch (Throwable $ex) {
 			// Log caught exception
 			$this->logger->error(
@@ -215,7 +197,7 @@ class Initialize extends Console\Command\Command
 				],
 			);
 
-			$io->error('Something went wrong, connector could not be created. Error was logged.');
+			$io->error($this->translator->translate('//viera-connector.cmd.initialize.messages.create.error'));
 		} finally {
 			// Revert all changes when error occur
 			if ($this->getOrmConnection()->isTransactionActive()) {
@@ -229,22 +211,22 @@ class Initialize extends Console\Command\Command
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 */
-	private function editExistingConfiguration(Style\SymfonyStyle $io): void
+	private function editConfiguration(Style\SymfonyStyle $io): void
 	{
 		$connector = $this->askWhichConnector($io);
 
 		if ($connector === null) {
-			$io->warning('No Viera connectors registered in system');
+			$io->warning($this->translator->translate('//viera-connector.cmd.initialize.messages.noConnectors'));
 
 			$question = new Console\Question\ConfirmationQuestion(
-				'Would you like to create new Viera connector configuration?',
+				$this->translator->translate('//viera-connector.cmd.initialize.questions.create'),
 				false,
 			);
 
 			$continue = (bool) $io->askQuestion($question);
 
 			if ($continue) {
-				$this->createNewConfiguration($io);
+				$this->createConfiguration($io);
 			}
 
 			return;
@@ -256,7 +238,7 @@ class Initialize extends Console\Command\Command
 
 		if ($connector->isEnabled()) {
 			$question = new Console\Question\ConfirmationQuestion(
-				'Do you want to disable connector?',
+				$this->translator->translate('//viera-connector.cmd.initialize.questions.disable'),
 				false,
 			);
 
@@ -265,7 +247,7 @@ class Initialize extends Console\Command\Command
 			}
 		} else {
 			$question = new Console\Question\ConfirmationQuestion(
-				'Do you want to enable connector?',
+				$this->translator->translate('//viera-connector.cmd.initialize.questions.enable'),
 				false,
 			);
 
@@ -286,10 +268,12 @@ class Initialize extends Console\Command\Command
 			// Commit all changes into database
 			$this->getOrmConnection()->commit();
 
-			$io->success(sprintf(
-				'Connector "%s" was successfully updated',
-				$connector->getName() ?? $connector->getIdentifier(),
-			));
+			$io->success(
+				$this->translator->translate(
+					'//viera-connector.cmd.initialize.messages.update.success',
+					['name' => $connector->getName() ?? $connector->getIdentifier()],
+				),
+			);
 		} catch (Throwable $ex) {
 			// Log caught exception
 			$this->logger->error(
@@ -301,7 +285,7 @@ class Initialize extends Console\Command\Command
 				],
 			);
 
-			$io->error('Something went wrong, connector could not be updated. Error was logged.');
+			$io->error($this->translator->translate('//viera-connector.cmd.initialize.messages.update.error'));
 		} finally {
 			// Revert all changes when error occur
 			if ($this->getOrmConnection()->isTransactionActive()) {
@@ -315,18 +299,18 @@ class Initialize extends Console\Command\Command
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 */
-	private function deleteExistingConfiguration(Style\SymfonyStyle $io): void
+	private function deleteConfiguration(Style\SymfonyStyle $io): void
 	{
 		$connector = $this->askWhichConnector($io);
 
 		if ($connector === null) {
-			$io->info('No Viera connectors registered in system');
+			$io->info($this->translator->translate('//viera-connector.cmd.initialize.messages.noConnectors'));
 
 			return;
 		}
 
 		$question = new Console\Question\ConfirmationQuestion(
-			'Would you like to continue?',
+			$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
 			false,
 		);
 
@@ -345,10 +329,12 @@ class Initialize extends Console\Command\Command
 			// Commit all changes into database
 			$this->getOrmConnection()->commit();
 
-			$io->success(sprintf(
-				'Connector "%s" was successfully removed',
-				$connector->getName() ?? $connector->getIdentifier(),
-			));
+			$io->success(
+				$this->translator->translate(
+					'//viera-connector.cmd.initialize.messages.remove.success',
+					['name' => $connector->getName() ?? $connector->getIdentifier()],
+				),
+			);
 		} catch (Throwable $ex) {
 			// Log caught exception
 			$this->logger->error(
@@ -360,7 +346,7 @@ class Initialize extends Console\Command\Command
 				],
 			);
 
-			$io->error('Something went wrong, connector could not be removed. Error was logged.');
+			$io->error($this->translator->translate('//viera-connector.cmd.initialize.messages.remove.error'));
 		} finally {
 			// Revert all changes when error occur
 			if ($this->getOrmConnection()->isTransactionActive()) {
@@ -369,9 +355,56 @@ class Initialize extends Console\Command\Command
 		}
 	}
 
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 */
+	private function listConfigurations(Style\SymfonyStyle $io): void
+	{
+		$findConnectorsQuery = new Queries\FindConnectors();
+
+		$connectors = $this->connectorsRepository->findAllBy($findConnectorsQuery, Entities\VieraConnector::class);
+		usort(
+			$connectors,
+			static function (Entities\VieraConnector $a, Entities\VieraConnector $b): int {
+				if ($a->getIdentifier() === $b->getIdentifier()) {
+					return $a->getName() <=> $b->getName();
+				}
+
+				return $a->getIdentifier() <=> $b->getIdentifier();
+			},
+		);
+
+		$table = new Console\Helper\Table($io);
+		$table->setHeaders([
+			'#',
+			$this->translator->translate('//viera-connector.cmd.initialize.data.name'),
+			$this->translator->translate('//viera-connector.cmd.initialize.data.devicesCnt'),
+		]);
+
+		foreach ($connectors as $index => $connector) {
+			$findDevicesQuery = new Queries\FindDevices();
+			$findDevicesQuery->forConnector($connector);
+
+			$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+
+			$table->addRow([
+				$index + 1,
+				$connector->getName() ?? $connector->getIdentifier(),
+				count($devices),
+			]);
+		}
+
+		$table->render();
+
+		$io->newLine();
+	}
+
 	private function askName(Style\SymfonyStyle $io, Entities\VieraConnector|null $connector = null): string|null
 	{
-		$question = new Console\Question\Question('Provide connector name', $connector?->getName());
+		$question = new Console\Question\Question(
+			$this->translator->translate('//viera-connector.cmd.initialize.questions.provide.name'),
+			$connector?->getName(),
+		);
 
 		$name = $io->askQuestion($question);
 
@@ -385,7 +418,7 @@ class Initialize extends Console\Command\Command
 	{
 		$connectors = [];
 
-		$findConnectorsQuery = new DevicesQueries\FindConnectors();
+		$findConnectorsQuery = new Queries\FindConnectors();
 
 		$systemConnectors = $this->connectorsRepository->findAllBy(
 			$findConnectorsQuery,
@@ -394,12 +427,10 @@ class Initialize extends Console\Command\Command
 		usort(
 			$systemConnectors,
 			// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-			static fn (DevicesEntities\Connectors\Connector $a, DevicesEntities\Connectors\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
+			static fn (Entities\VieraConnector $a, Entities\VieraConnector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
 		);
 
 		foreach ($systemConnectors as $connector) {
-			assert($connector instanceof Entities\VieraConnector);
-
 			$connectors[$connector->getIdentifier()] = $connector->getIdentifier()
 				. ($connector->getName() !== null ? ' [' . $connector->getName() . ']' : '');
 		}
@@ -409,14 +440,21 @@ class Initialize extends Console\Command\Command
 		}
 
 		$question = new Console\Question\ChoiceQuestion(
-			'Please select connector under which you want to manage devices',
+			$this->translator->translate('//viera-connector.cmd.initialize.questions.select.connector'),
 			array_values($connectors),
 			count($connectors) === 1 ? 0 : null,
 		);
-		$question->setErrorMessage('Selected connector: "%s" is not valid.');
-		$question->setValidator(function (string|null $answer) use ($connectors): Entities\VieraConnector {
+		$question->setErrorMessage(
+			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+		);
+		$question->setValidator(function (string|int|null $answer) use ($connectors): Entities\VieraConnector {
 			if ($answer === null) {
-				throw new Exceptions\InvalidState('Selected answer is not valid');
+				throw new Exceptions\Runtime(
+					sprintf(
+						$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+						$answer,
+					),
+				);
 			}
 
 			if (array_key_exists($answer, array_values($connectors))) {
@@ -426,27 +464,98 @@ class Initialize extends Console\Command\Command
 			$identifier = array_search($answer, $connectors, true);
 
 			if ($identifier !== false) {
-				$findConnectorQuery = new DevicesQueries\FindConnectors();
+				$findConnectorQuery = new Queries\FindConnectors();
 				$findConnectorQuery->byIdentifier($identifier);
 
 				$connector = $this->connectorsRepository->findOneBy(
 					$findConnectorQuery,
 					Entities\VieraConnector::class,
 				);
-				assert($connector instanceof Entities\VieraConnector || $connector === null);
 
 				if ($connector !== null) {
 					return $connector;
 				}
 			}
 
-			throw new Exceptions\InvalidState('Selected answer is not valid');
+			throw new Exceptions\Runtime(
+				sprintf(
+					$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+					$answer,
+				),
+			);
 		});
 
 		$connector = $io->askQuestion($question);
 		assert($connector instanceof Entities\VieraConnector);
 
 		return $connector;
+	}
+
+	/**
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\Runtime
+	 */
+	private function askInitializeAction(Style\SymfonyStyle $io): void
+	{
+		$question = new Console\Question\ChoiceQuestion(
+			$this->translator->translate('//viera-connector.cmd.base.questions.whatToDo'),
+			[
+				0 => $this->translator->translate('//viera-connector.cmd.initialize.actions.create'),
+				1 => $this->translator->translate('//viera-connector.cmd.initialize.actions.update'),
+				2 => $this->translator->translate('//viera-connector.cmd.initialize.actions.remove'),
+				3 => $this->translator->translate('//viera-connector.cmd.initialize.actions.list'),
+				4 => $this->translator->translate('//viera-connector.cmd.initialize.actions.nothing'),
+			],
+			4,
+		);
+
+		$question->setErrorMessage(
+			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+		);
+
+		$whatToDo = $io->askQuestion($question);
+
+		if (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.initialize.actions.create',
+			)
+			|| $whatToDo === '0'
+		) {
+			$this->createConfiguration($io);
+
+			$this->askInitializeAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.initialize.actions.update',
+			)
+			|| $whatToDo === '1'
+		) {
+			$this->editConfiguration($io);
+
+			$this->askInitializeAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.initialize.actions.remove',
+			)
+			|| $whatToDo === '2'
+		) {
+			$this->deleteConfiguration($io);
+
+			$this->askInitializeAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.initialize.actions.list',
+			)
+			|| $whatToDo === '3'
+		) {
+			$this->listConfigurations($io);
+
+			$this->askInitializeAction($io);
+		}
 	}
 
 	/**
@@ -460,7 +569,7 @@ class Initialize extends Console\Command\Command
 			return $connection;
 		}
 
-		throw new Exceptions\Runtime('Transformer manager could not be loaded');
+		throw new Exceptions\Runtime('Database connection could not be established');
 	}
 
 }

@@ -33,27 +33,27 @@ class DevicePropertyIdentifier extends Consistence\Enum\Enum
 	/**
 	 * Define device states
 	 */
-	public const IDENTIFIER_IP_ADDRESS = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_IP_ADDRESS;
+	public const IP_ADDRESS = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_IP_ADDRESS;
 
-	public const IDENTIFIER_STATE = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_STATE;
+	public const STATE = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_STATE;
 
-	public const IDENTIFIER_HARDWARE_MODEL = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MODEL;
+	public const MODEL = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MODEL;
 
-	public const IDENTIFIER_HARDWARE_MANUFACTURER = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MANUFACTURER;
+	public const MANUFACTURER = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MANUFACTURER;
 
-	public const IDENTIFIER_HARDWARE_MAC_ADDRESS = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MAC_ADDRESS;
+	public const MAC_ADDRESS = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MAC_ADDRESS;
 
-	public const IDENTIFIER_SERIAL_NUMBER = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_SERIAL_NUMBER;
+	public const SERIAL_NUMBER = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_SERIAL_NUMBER;
 
-	public const IDENTIFIER_PORT = 'port';
+	public const PORT = 'port';
 
-	public const IDENTIFIER_ENCRYPTED = 'encrypted';
+	public const ENCRYPTED = 'encrypted';
 
-	public const IDENTIFIER_APP_ID = 'app_id';
+	public const APP_ID = 'app_id';
 
-	public const IDENTIFIER_ENCRYPTION_KEY = 'encryption_key';
+	public const ENCRYPTION_KEY = 'encryption_key';
 
-	public const IDENTIFIER_STATUS_READING_DELAY = 'status_reading_delay';
+	public const STATE_READING_DELAY = 'state_reading_delay';
 
 	public function __toString(): string
 	{

@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * DeviceState.php
+ * StoreDeviceConnectionState.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -10,33 +10,35 @@
  * @subpackage     Entities
  * @since          1.0.0
  *
- * @date           29.06.23
+ * @date           10.08.23
  */
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
+use FastyBird\Library\Bootstrap\ObjectMapper as BootstrapObjectMapper;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Ramsey\Uuid;
 use function array_merge;
 
 /**
- * Device state message entity
+ * Store device connection state message entity
  *
  * @package        FastyBird:VieraConnector!
  * @subpackage     Entities
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class DeviceState extends Device
+final class StoreDeviceConnectionState extends Device implements Entity
 {
 
 	public function __construct(
 		Uuid\UuidInterface $connector,
-		string $identifier,
+		Uuid\UuidInterface $device,
+		#[BootstrapObjectMapper\Rules\ConsistenceEnumValue(class: MetadataTypes\ConnectionState::class)]
 		private readonly MetadataTypes\ConnectionState $state,
 	)
 	{
-		parent::__construct($connector, $identifier);
+		parent::__construct($connector, $device);
 	}
 
 	public function getState(): MetadataTypes\ConnectionState

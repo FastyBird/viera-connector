@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+        <u:X_GetAppList xmlns:u="urn:panasonic-com:service:p00NetworkControl:1">None</u:X_GetAppList>
+    </s:Body>
+</s:Envelope>

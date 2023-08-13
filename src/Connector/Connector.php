@@ -15,12 +15,17 @@
 
 namespace FastyBird\Connector\Viera\Connector;
 
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Clients;
-use FastyBird\Connector\Viera\Consumers;
 use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Queue;
+use FastyBird\Connector\Viera\Writers;
+use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Connectors as DevicesConnectors;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
+use FastyBird\Module\Devices\Events as DevicesEvents;
 use Nette;
+use Psr\EventDispatcher as PsrEventDispatcher;
 use React\EventLoop;
 use function assert;
 use function React\Async\async;
@@ -40,15 +45,22 @@ final class Connector implements DevicesConnectors\Connector
 
 	private const QUEUE_PROCESSING_INTERVAL = 0.01;
 
-	private Clients\Client|null $client = null;
+	private Clients\Client|Clients\Discovery|null $client = null;
 
-	private EventLoop\TimerInterface|null $consumerTimer = null;
+	private Writers\Writer|null $writer = null;
+
+	private EventLoop\TimerInterface|null $consumersTimer = null;
 
 	public function __construct(
 		private readonly DevicesEntities\Connectors\Connector $connector,
 		private readonly Clients\ClientFactory $clientFactory,
-		private readonly Consumers\Messages $consumer,
+		private readonly Clients\DiscoveryFactory $discoveryClientFactory,
+		private readonly Writers\WriterFactory $writerFactory,
+		private readonly Queue\Queue $queue,
+		private readonly Queue\Consumers $consumers,
+		private readonly Viera\Logger $logger,
 		private readonly EventLoop\LoopInterface $eventLoop,
+		private readonly PsrEventDispatcher\EventDispatcherInterface|null $dispatcher = null,
 	)
 	{
 	}
@@ -57,34 +69,114 @@ final class Connector implements DevicesConnectors\Connector
 	{
 		assert($this->connector instanceof Entities\VieraConnector);
 
+		$this->logger->info(
+			'Starting Viera connector service',
+			[
+				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'type' => 'connector',
+				'connector' => [
+					'id' => $this->connector->getId()->toString(),
+				],
+			],
+		);
+
 		$this->client = $this->clientFactory->create($this->connector);
 		$this->client->connect();
 
-		$this->consumerTimer = $this->eventLoop->addPeriodicTimer(
+		$this->writer = $this->writerFactory->create($this->connector);
+		$this->writer->connect();
+
+		$this->consumersTimer = $this->eventLoop->addPeriodicTimer(
 			self::QUEUE_PROCESSING_INTERVAL,
 			async(function (): void {
-				$this->consumer->consume();
+				$this->consumers->consume();
 			}),
+		);
+
+		$this->logger->info(
+			'Viera connector service has been started',
+			[
+				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'type' => 'connector',
+				'connector' => [
+					'id' => $this->connector->getId()->toString(),
+				],
+			],
 		);
 	}
 
 	public function discover(): void
 	{
-		// TODO: Implement it
+		assert($this->connector instanceof Entities\VieraConnector);
+
+		$this->logger->info(
+			'Starting Viera connector discovery',
+			[
+				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'type' => 'connector',
+				'connector' => [
+					'id' => $this->connector->getId()->toString(),
+				],
+			],
+		);
+
+		$this->client = $this->discoveryClientFactory->create($this->connector);
+
+		$this->client->on('finished', function (): void {
+			$this->dispatcher?->dispatch(
+				new DevicesEvents\TerminateConnector(
+					MetadataTypes\ConnectorSource::get(MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA),
+					'Devices discovery finished',
+				),
+			);
+		});
+
+		$this->consumersTimer = $this->eventLoop->addPeriodicTimer(
+			self::QUEUE_PROCESSING_INTERVAL,
+			async(function (): void {
+				$this->consumers->consume();
+			}),
+		);
+
+		$this->logger->info(
+			'Viera connector discovery has been started',
+			[
+				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'type' => 'connector',
+				'connector' => [
+					'id' => $this->connector->getId()->toString(),
+				],
+			],
+		);
+
+		$this->client->discover();
 	}
 
 	public function terminate(): void
 	{
 		$this->client?->disconnect();
 
-		if ($this->consumerTimer !== null) {
-			$this->eventLoop->cancelTimer($this->consumerTimer);
+		$this->writer?->disconnect();
+
+		if ($this->consumersTimer !== null && $this->queue->isEmpty()) {
+			$this->eventLoop->cancelTimer($this->consumersTimer);
 		}
+
+		$this->logger->info(
+			'Viera connector has been terminated',
+			[
+				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'type' => 'connector',
+				'connector' => [
+					'id' => $this->connector->getId()->toString(),
+				],
+			],
+		);
 	}
 
 	public function hasUnfinishedTasks(): bool
 	{
-		return !$this->consumer->isEmpty() && $this->consumerTimer !== null;
+		return !$this->queue->isEmpty() && $this->consumersTimer !== null;
 	}
 
 }

@@ -15,11 +15,6 @@
 
 namespace FastyBird\Connector\Viera\Clients;
 
-use FastyBird\Connector\Viera\Entities;
-use FastyBird\Library\Metadata\Entities as MetadataEntities;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
-use React\Promise;
-
 /**
  * Base device client interface
  *
@@ -40,14 +35,5 @@ interface Client
 	 * Destroy servers/clients
 	 */
 	public function disconnect(): void;
-
-	/**
-	 * Write thing parameter mapped as channel
-	 */
-	public function writeChannelProperty(
-		Entities\VieraDevice $device,
-		DevicesEntities\Channels\Channel $channel,
-		DevicesEntities\Channels\Properties\Dynamic|MetadataEntities\DevicesModule\ChannelDynamicProperty $property,
-	): Promise\PromiseInterface;
 
 }

@@ -15,9 +15,6 @@
 
 namespace FastyBird\Connector\Viera\Writers;
 
-use FastyBird\Connector\Viera\Clients;
-use FastyBird\Connector\Viera\Entities;
-
 /**
  * Properties writer interface
  *
@@ -29,14 +26,8 @@ use FastyBird\Connector\Viera\Entities;
 interface Writer
 {
 
-	public function connect(
-		Entities\VieraConnector $connector,
-		Clients\Client $client,
-	): void;
+	public function connect(): void;
 
-	public function disconnect(
-		Entities\VieraConnector $connector,
-		Clients\Client $client,
-	): void;
+	public function disconnect(): void;
 
 }

@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
-use Nette;
+use Orisai\ObjectMapper;
 
 /**
  * Created device hdmi entity
@@ -28,10 +28,10 @@ use Nette;
 final class DeviceHdmi implements Entity
 {
 
-	use Nette\SmartObject;
-
 	public function __construct(
+		#[ObjectMapper\Rules\IntValue(unsigned: true)]
 		private readonly int $id,
+		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
 		private readonly string $name,
 	)
 	{

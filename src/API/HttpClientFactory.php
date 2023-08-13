@@ -39,7 +39,7 @@ final class HttpClientFactory
 
 	private GuzzleHttp\Client|null $client = null;
 
-	private Http\Browser|null $asyncClient = null;
+	private Http\Io\Transaction|null $asyncClient = null;
 
 	public function __construct(
 		private readonly EventLoop\LoopInterface $eventLoop,
@@ -48,21 +48,23 @@ final class HttpClientFactory
 	}
 
 	/**
-	 * @return ($async is true ? Http\Browser : GuzzleHttp\Client)
+	 * @return ($async is true ? Http\Io\Transaction : GuzzleHttp\Client)
 	 *
 	 * @throws InvalidArgumentException
 	 */
-	public function createClient(bool $async = true): GuzzleHttp\Client|Http\Browser
+	public function createClient(bool $async = true): GuzzleHttp\Client|Http\Io\Transaction
 	{
 		if ($async) {
 			if ($this->asyncClient === null) {
-				$this->asyncClient = new Http\Browser(
-					new Connector(
-						[
-							'timeout' => self::CONNECTION_TIMEOUT,
-						],
-						$this->eventLoop,
-					),
+				$connector = new Connector(
+					[
+						'timeout' => self::CONNECTION_TIMEOUT,
+					],
+					$this->eventLoop,
+				);
+
+				$this->asyncClient = new Http\Io\Transaction(
+					Http\Io\Sender::createFromLoop($this->eventLoop, $connector),
 					$this->eventLoop,
 				);
 			}

@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\API;
 
-use FastyBird\Connector\Viera\Entities;
+use Orisai\ObjectMapper;
 
 /**
  * Request pin code entity
@@ -25,18 +25,23 @@ use FastyBird\Connector\Viera\Entities;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class RequestPinCode implements Entities\API\Entity
+class RequestPinCode implements Entity
 {
 
 	public function __construct(
-		private readonly string|null $X_ChallengeKey = null,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('challenge_key')]
+		private readonly string|null $challengeKey = null,
 	)
 	{
 	}
 
-	public function getXChallengeKey(): string|null
+	public function getChallengeKey(): string|null
 	{
-		return $this->X_ChallengeKey;
+		return $this->challengeKey;
 	}
 
 	/**
@@ -45,7 +50,7 @@ class RequestPinCode implements Entities\API\Entity
 	public function toArray(): array
 	{
 		return [
-			'challenge_key' => $this->getXChallengeKey(),
+			'challenge_key' => $this->getChallengeKey(),
 		];
 	}
 

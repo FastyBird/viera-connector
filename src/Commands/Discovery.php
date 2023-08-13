@@ -16,41 +16,41 @@
 namespace FastyBird\Connector\Viera\Commands;
 
 use DateTimeInterface;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
-use FastyBird\Connector\Viera\Clients;
-use FastyBird\Connector\Viera\Consumers;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Module\Devices\Commands as DevicesCommands;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use IPub\DoctrineCrud\Exceptions as DoctrineCrudExceptions;
+use Nette\Localization;
 use Nette\Utils;
-use Psr\Log;
 use Ramsey\Uuid;
-use React\EventLoop;
 use Symfony\Component\Console;
 use Symfony\Component\Console\Input;
 use Symfony\Component\Console\Output;
 use Symfony\Component\Console\Style;
 use Throwable;
+use function array_key_exists;
 use function array_key_first;
 use function array_search;
 use function array_values;
 use function assert;
 use function count;
-use function intval;
 use function is_string;
-use function React\Async\async;
 use function sprintf;
 use function strval;
 use function usort;
-use const SIGINT;
 
 /**
  * Connector devices discovery command
@@ -65,33 +65,19 @@ class Discovery extends Console\Command\Command
 
 	public const NAME = 'fb:viera-connector:discover';
 
-	private const DISCOVERY_WAITING_INTERVAL = 5.0;
-
-	private const DISCOVERY_MAX_PROCESSING_INTERVAL = 60.0;
-
-	private const QUEUE_PROCESSING_INTERVAL = 0.01;
-
 	private string|null $challengeKey = null;
 
 	private DateTimeInterface|null $executedTime = null;
 
-	private EventLoop\TimerInterface|null $consumerTimer = null;
-
-	private EventLoop\TimerInterface|null $progressBarTimer;
-
-	private Clients\Discovery|null $client = null;
-
 	public function __construct(
-		private readonly API\TelevisionApiFactory $televisionApiFactory,
-		private readonly Clients\DiscoveryFactory $clientFactory,
-		private readonly Consumers\Messages $consumer,
+		private readonly Api\TelevisionApiFactory $televisionApiFactory,
+		private readonly Viera\Logger $logger,
 		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
 		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicePropertiesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicePropertiesManager,
+		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
-		private readonly EventLoop\LoopInterface $eventLoop,
-		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
+		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)
 	{
@@ -112,7 +98,7 @@ class Discovery extends Console\Command\Command
 						'connector',
 						'c',
 						Input\InputOption::VALUE_OPTIONAL,
-						'Run devices module connector',
+						'Connector ID or identifier',
 						true,
 					),
 				]),
@@ -120,20 +106,30 @@ class Discovery extends Console\Command\Command
 	}
 
 	/**
+	 * @throws Console\Exception\ExceptionInterface
 	 * @throws Console\Exception\InvalidArgumentException
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
 	 */
 	protected function execute(Input\InputInterface $input, Output\OutputInterface $output): int
 	{
+		$symfonyApp = $this->getApplication();
+
+		if ($symfonyApp === null) {
+			return Console\Command\Command::FAILURE;
+		}
+
 		$io = new Style\SymfonyStyle($input, $output);
 
-		$io->title('Viera connector - discovery');
+		$io->title($this->translator->translate('//viera-connector.cmd.discovery.title'));
 
-		$io->note('This action will run connector devices discovery.');
+		$io->note($this->translator->translate('//viera-connector.cmd.discovery.subtitle'));
 
 		if ($input->getOption('no-interaction') === false) {
 			$question = new Console\Question\ConfirmationQuestion(
-				'Would you like to continue?',
+				$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
 				false,
 			);
 
@@ -151,7 +147,7 @@ class Discovery extends Console\Command\Command
 		) {
 			$connectorId = $input->getOption('connector');
 
-			$findConnectorQuery = new DevicesQueries\FindConnectors();
+			$findConnectorQuery = new Queries\FindConnectors();
 
 			if (Uuid\Uuid::isValid($connectorId)) {
 				$findConnectorQuery->byId(Uuid\Uuid::fromString($connectorId));
@@ -160,17 +156,18 @@ class Discovery extends Console\Command\Command
 			}
 
 			$connector = $this->connectorsRepository->findOneBy($findConnectorQuery, Entities\VieraConnector::class);
-			assert($connector instanceof Entities\VieraConnector || $connector === null);
 
 			if ($connector === null) {
-				$io->warning('Connector was not found in system');
+				$io->warning(
+					$this->translator->translate('//viera-connector.cmd.discovery.messages.connector.notFound'),
+				);
 
 				return Console\Command\Command::FAILURE;
 			}
 		} else {
 			$connectors = [];
 
-			$findConnectorsQuery = new DevicesQueries\FindConnectors();
+			$findConnectorsQuery = new Queries\FindConnectors();
 
 			$systemConnectors = $this->connectorsRepository->findAllBy(
 				$findConnectorsQuery,
@@ -179,18 +176,16 @@ class Discovery extends Console\Command\Command
 			usort(
 				$systemConnectors,
 				// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-				static fn (DevicesEntities\Connectors\Connector $a, DevicesEntities\Connectors\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
+				static fn (Entities\VieraConnector $a, Entities\VieraConnector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
 			);
 
 			foreach ($systemConnectors as $connector) {
-				assert($connector instanceof Entities\VieraConnector);
-
 				$connectors[$connector->getIdentifier()] = $connector->getIdentifier()
 					. ($connector->getName() !== null ? ' [' . $connector->getName() . ']' : '');
 			}
 
 			if (count($connectors) === 0) {
-				$io->warning('No connectors registered in system');
+				$io->warning($this->translator->translate('//viera-connector.cmd.discovery.messages.noConnectors'));
 
 				return Console\Command\Command::FAILURE;
 			}
@@ -198,26 +193,27 @@ class Discovery extends Console\Command\Command
 			if (count($connectors) === 1) {
 				$connectorIdentifier = array_key_first($connectors);
 
-				$findConnectorQuery = new DevicesQueries\FindConnectors();
+				$findConnectorQuery = new Queries\FindConnectors();
 				$findConnectorQuery->byIdentifier($connectorIdentifier);
 
 				$connector = $this->connectorsRepository->findOneBy(
 					$findConnectorQuery,
 					Entities\VieraConnector::class,
 				);
-				assert($connector instanceof Entities\VieraConnector || $connector === null);
 
 				if ($connector === null) {
-					$io->warning('Connector was not found in system');
+					$io->warning(
+						$this->translator->translate('//viera-connector.cmd.discovery.messages.connector.notFound'),
+					);
 
 					return Console\Command\Command::FAILURE;
 				}
 
 				if ($input->getOption('no-interaction') === false) {
 					$question = new Console\Question\ConfirmationQuestion(
-						sprintf(
-							'Would you like to discover televisions with "%s" connector',
-							$connector->getName() ?? $connector->getIdentifier(),
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.questions.execute',
+							['connector' => $connector->getName() ?? $connector->getIdentifier()],
 						),
 						false,
 					);
@@ -228,372 +224,366 @@ class Discovery extends Console\Command\Command
 				}
 			} else {
 				$question = new Console\Question\ChoiceQuestion(
-					'Please select connector to perform discovery',
+					$this->translator->translate('//viera-connector.cmd.discovery.questions.select.connector'),
 					array_values($connectors),
 				);
-
-				$question->setErrorMessage('Selected connector: %s is not valid.');
-
-				$connectorIdentifier = array_search($io->askQuestion($question), $connectors, true);
-
-				if ($connectorIdentifier === false) {
-					$io->error('Something went wrong, connector could not be loaded');
-
-					$this->logger->alert(
-						'Could not read connector identifier from console answer',
-						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-							'type' => 'discovery-cmd',
-						],
-					);
-
-					return Console\Command\Command::FAILURE;
-				}
-
-				$findConnectorQuery = new DevicesQueries\FindConnectors();
-				$findConnectorQuery->byIdentifier($connectorIdentifier);
-
-				$connector = $this->connectorsRepository->findOneBy(
-					$findConnectorQuery,
-					Entities\VieraConnector::class,
+				$question->setErrorMessage(
+					$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 				);
-				assert($connector instanceof Entities\VieraConnector || $connector === null);
-			}
+				$question->setValidator(
+					function (string|int|null $answer) use ($connectors): Entities\VieraConnector {
+						if ($answer === null) {
+							throw new Exceptions\Runtime(
+								sprintf(
+									$this->translator->translate(
+										'//viera-connector.cmd.base.messages.answerNotValid',
+									),
+									$answer,
+								),
+							);
+						}
 
-			if ($connector === null) {
-				$io->error('Something went wrong, connector could not be loaded');
+						if (array_key_exists($answer, array_values($connectors))) {
+							$answer = array_values($connectors)[$answer];
+						}
 
-				$this->logger->alert(
-					'Connector was not found',
-					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'discovery-cmd',
-					],
+						$identifier = array_search($answer, $connectors, true);
+
+						if ($identifier !== false) {
+							$findConnectorQuery = new Queries\FindConnectors();
+							$findConnectorQuery->byIdentifier($identifier);
+
+							$connector = $this->connectorsRepository->findOneBy(
+								$findConnectorQuery,
+								Entities\VieraConnector::class,
+							);
+
+							if ($connector !== null) {
+								return $connector;
+							}
+						}
+
+						throw new Exceptions\Runtime(
+							sprintf(
+								$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+								$answer,
+							),
+						);
+					},
 				);
 
-				return Console\Command\Command::FAILURE;
+				$connector = $io->askQuestion($question);
+				assert($connector instanceof Entities\VieraConnector);
 			}
 		}
 
 		if (!$connector->isEnabled()) {
-			$io->warning('Connector is disabled. Disabled connector could not be executed');
+			$io->warning(
+				$this->translator->translate('//viera-connector.cmd.discovery.messages.connector.disabled'),
+			);
 
 			return Console\Command\Command::SUCCESS;
 		}
 
-		$this->client = $this->clientFactory->create($connector);
+		$this->executedTime = $this->dateTimeFactory->getNow();
 
-		$progressBar = new Console\Helper\ProgressBar(
-			$output,
-			intval(self::DISCOVERY_MAX_PROCESSING_INTERVAL * 60),
-		);
+		$serviceCmd = $symfonyApp->find(DevicesCommands\Connector::NAME);
 
-		$progressBar->setFormat('[%bar%] %percent:3s%% %elapsed:6s%/%estimated:-6s% %');
+		$result = $serviceCmd->run(new Input\ArrayInput([
+			'--connector' => $connector->getId()->toString(),
+			'--mode' => DevicesCommands\Connector::MODE_DISCOVER,
+			'--no-interaction' => true,
+			'--quiet' => true,
+		]), $output);
 
-		try {
-			$this->eventLoop->addSignal(SIGINT, function () use ($io): void {
-				$this->logger->info(
-					'Stopping Viera connector discovery...',
-					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'discovery-cmd',
-					],
-				);
+		if ($result !== Console\Command\Command::SUCCESS) {
+			$io->error($this->translator->translate('//viera-connector.cmd.execute.messages.error'));
 
-				$io->info('Stopping Viera connector discovery...');
+			return Console\Command\Command::FAILURE;
+		}
 
-				$this->client?->disconnect();
+		$this->showResults($io, $output, $connector);
 
-				$this->checkAndTerminate();
-			});
+		return Console\Command\Command::SUCCESS;
+	}
 
-			$this->eventLoop->futureTick(
-				async(function () use ($io, $progressBar): void {
-					$this->logger->info(
-						'Starting Viera connector discovery...',
-						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-							'type' => 'discovery-cmd',
-						],
-					);
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 */
+	private function showResults(
+		Style\SymfonyStyle $io,
+		Output\OutputInterface $output,
+		Entities\VieraConnector $connector,
+	): void
+	{
+		$io->newLine();
 
-					$io->info('Starting Viera connector discovery...');
+		$table = new Console\Helper\Table($output);
+		$table->setHeaders([
+			'#',
+			$this->translator->translate('//viera-connector.cmd.discovery.data.id'),
+			$this->translator->translate('//viera-connector.cmd.discovery.data.name'),
+			$this->translator->translate('//viera-connector.cmd.discovery.data.model'),
+			$this->translator->translate('//viera-connector.cmd.discovery.data.ipAddress'),
+			$this->translator->translate('//viera-connector.cmd.discovery.data.encryption'),
+		]);
 
-					$progressBar->start();
+		$foundDevices = 0;
+		$encryptedDevices = [];
 
-					$this->executedTime = $this->dateTimeFactory->getNow();
+		$findDevicesQuery = new Queries\FindDevices();
+		$findDevicesQuery->forConnector($connector);
 
-					$this->client?->on('finished', function (): void {
-						$this->client?->disconnect();
+		$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
 
-						$this->checkAndTerminate();
-					});
+		foreach ($devices as $device) {
+			$createdAt = $device->getCreatedAt();
 
-					$this->client?->discover();
-				}),
-			);
+			if (
+				$createdAt !== null
+				&& $this->executedTime !== null
+				&& $createdAt->getTimestamp() > $this->executedTime->getTimestamp()
+			) {
+				$foundDevices++;
 
-			$this->consumerTimer = $this->eventLoop->addPeriodicTimer(
-				self::QUEUE_PROCESSING_INTERVAL,
-				async(function (): void {
-					$this->consumer->consume();
-				}),
-			);
+				$isEncrypted = $device->isEncrypted();
 
-			$this->progressBarTimer = $this->eventLoop->addPeriodicTimer(
-				0.1,
-				async(static function () use ($progressBar): void {
-					$progressBar->advance();
-				}),
-			);
+				$table->addRow([
+					$foundDevices,
+					$device->getId()->toString(),
+					$device->getName() ?? $device->getIdentifier(),
+					$device->getModel() ?? 'N/A',
+					$device->getIpAddress() ?? 'N/A',
+					$isEncrypted ? 'yes' : 'no',
+				]);
 
-			$this->eventLoop->addTimer(
-				self::DISCOVERY_MAX_PROCESSING_INTERVAL,
-				async(function (): void {
-					$this->client?->disconnect();
+				if ($isEncrypted && ($device->getAppId() === null || $device->getEncryptionKey() === null)) {
+					$encryptedDevices[] = $device;
+				}
+			}
+		}
 
-					$this->checkAndTerminate();
-				}),
-			);
+		if ($foundDevices > 0) {
+			$io->newLine();
 
-			$this->eventLoop->run();
+			$io->info(sprintf(
+				$this->translator->translate('//viera-connector.cmd.discovery.messages.foundDevices'),
+				$foundDevices,
+			));
 
-			$progressBar->finish();
+			$table->render();
 
 			$io->newLine();
 
-			$findDevicesQuery = new DevicesQueries\FindDevices();
-			$findDevicesQuery->byConnectorId($connector->getId());
+		} else {
+			$io->info($this->translator->translate('//viera-connector.cmd.discovery.messages.noDevicesFound'));
+		}
 
-			$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+		if ($encryptedDevices !== []) {
+			$this->processEncryptedDevices($io, $connector, $encryptedDevices);
+		}
 
-			$table = new Console\Helper\Table($output);
-			$table->setHeaders([
-				'#',
-				'ID',
-				'Name',
-				'Model',
-				'IP address',
-				'Encryption',
-			]);
+		$io->success($this->translator->translate('//viera-connector.cmd.discovery.messages.success'));
+	}
 
-			$foundDevices = 0;
-			$encryptedDevices = [];
+	/**
+	 * @param array<Entities\VieraDevice> $encryptedDevices
+	 *
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 */
+	private function processEncryptedDevices(
+		Style\SymfonyStyle $io,
+		Entities\VieraConnector $connector,
+		array $encryptedDevices,
+	): void
+	{
+		$io->info($this->translator->translate('//viera-connector.cmd.discovery.messages.foundEncryptedDevices'));
 
-			foreach ($devices as $device) {
-				assert($device instanceof Entities\VieraDevice);
+		$question = new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.discovery.questions.pairDevice'),
+			false,
+		);
 
-				$createdAt = $device->getCreatedAt();
+		$continue = (bool) $io->askQuestion($question);
 
-				if (
-					$createdAt !== null
-					&& $this->executedTime !== null
-					&& $createdAt->getTimestamp() > $this->executedTime->getTimestamp()
-				) {
-					$foundDevices++;
+		if ($continue) {
+			foreach ($encryptedDevices as $device) {
+				if ($device->getIpAddress() === null) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.messages.missingIpAddress',
+							['device' => $device->getName()],
+						),
+					);
 
-					$ipAddress = $device->getIpAddress();
-					$isEncrypted = $device->isEncrypted();
-
-					$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
-					$findDevicePropertyQuery->forDevice($device);
-					$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MODEL);
-
-					$hardwareModelProperty = $this->devicePropertiesRepository->findOneBy($findDevicePropertyQuery);
-
-					$table->addRow([
-						$foundDevices,
-						$device->getPlainId(),
-						$device->getName() ?? $device->getIdentifier(),
-						$hardwareModelProperty?->getValue() ?? 'N/A',
-						$ipAddress ?? 'N/A',
-						$isEncrypted ? 'yes' : 'no',
-					]);
-
-					if ($isEncrypted && ($device->getAppId() === null || $device->getEncryptionKey() === null)) {
-						$encryptedDevices[] = $device;
-					}
+					continue;
 				}
-			}
 
-			if ($foundDevices > 0) {
-				$io->newLine();
-
-				$io->info(sprintf('Found %d new televisions', $foundDevices));
-
-				$table->render();
-
-				$io->newLine();
-
-			} else {
-				$io->info('No televisions were found');
-			}
-
-			if ($encryptedDevices !== []) {
-				$io->info('Some televisions require to by paired to get encryption keys');
-
-				$question = new Console\Question\ConfirmationQuestion(
-					'Would you like to pair this televisions?',
-					false,
+				$io->info(
+					$this->translator->translate(
+						'//viera-connector.cmd.discovery.messages.pairing.started',
+						['device' => $device->getName()],
+					),
 				);
 
-				$continue = (bool) $io->askQuestion($question);
+				try {
+					$televisionApi = $this->televisionApiFactory->create(
+						$device->getIdentifier(),
+						$device->getIpAddress(),
+						$device->getPort(),
+					);
+					$televisionApi->connect();
+				} catch (Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.messages.device.connectionFailed',
+							['device' => $device->getName()],
+						),
+					);
 
-				if ($continue) {
-					foreach ($encryptedDevices as $device) {
-						if ($device->getIpAddress() === null) {
-							$io->error(
-								sprintf(
-									'Something went wrong television: %s has not defined its ip address',
-									$device->getName(),
-								),
-							);
+					$this->logger->error(
+						'Creating api client failed',
+						[
+							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'type' => 'discovery-cmd',
+							'exception' => BootstrapHelpers\Logger::buildException($ex),
+						],
+					);
 
-							continue;
-						}
+					continue;
+				}
 
-						$io->info(sprintf('Pairing television: %s', $device->getName()));
+				try {
+					$isTurnedOn = $televisionApi->isTurnedOn(true);
+				} catch (Throwable $ex) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.messages.device.pairingFailed',
+							['device' => $device->getName()],
+						),
+					);
 
-						$televisionApi = $this->televisionApiFactory->create(
-							$device->getIdentifier(),
-							$device->getIpAddress(),
-							$device->getPort(),
-						);
-						$televisionApi->connect();
+					$this->logger->error(
+						'Checking screen status failed',
+						[
+							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'type' => 'discovery-cmd',
+							'exception' => BootstrapHelpers\Logger::buildException($ex),
+						],
+					);
 
-						try {
-							$isTurnedOn = $televisionApi->isTurnedOn(true);
-						} catch (Throwable $ex) {
-							$this->logger->error(
-								'Checking screen status failed',
-								[
-									'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-									'type' => 'discovery-cmd',
-									'exception' => BootstrapHelpers\Logger::buildException($ex),
-								],
-							);
+					continue;
+				}
 
-							$io->error('Something went wrong, television could not be paired. Error was logged.');
+				if ($isTurnedOn === false) {
+					$io->warning(
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.messages.device.offline',
+							['device' => $device->getName()],
+						),
+					);
 
-							continue;
-						}
+					$question = new Console\Question\ConfirmationQuestion(
+						$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
+						false,
+					);
 
-						if ($isTurnedOn === false) {
-							$io->warning(
-								'It looks like your TV is not turned on. It is possible that the pairing could not be finished.',
-							);
+					$continue = (bool) $io->askQuestion($question);
 
-							$question = new Console\Question\ConfirmationQuestion(
-								'Would you like to continue?',
-								false,
-							);
-
-							$continue = (bool) $io->askQuestion($question);
-
-							if (!$continue) {
-								continue;
-							}
-						}
-
-						$this->challengeKey = $televisionApi->requestPinCode(
-							$connector->getName() ?? $connector->getIdentifier(),
-							false,
-						);
-
-						$authorization = $this->askPinCode($io, $connector, $televisionApi);
-
-						$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
-						$findDevicePropertyQuery->forDevice($device);
-						$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::IDENTIFIER_APP_ID);
-
-						$appIdProperty = $this->devicePropertiesRepository->findOneBy($findDevicePropertyQuery);
-
-						if ($appIdProperty === null) {
-							$this->devicePropertiesManager->create(Utils\ArrayHash::from([
-								'entity' => DevicesEntities\Devices\Properties\Variable::class,
-								'device' => $device,
-								'identifier' => Types\DevicePropertyIdentifier::IDENTIFIER_APP_ID,
-								'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_APP_ID),
-								'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-								'settable' => false,
-								'queryable' => false,
-								'value' => $authorization->getAppId(),
-								'format' => null,
-							]));
-						} else {
-							$this->devicePropertiesManager->update($appIdProperty, Utils\ArrayHash::from([
-								'value' => $authorization->getAppId(),
-							]));
-						}
-
-						$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
-						$findDevicePropertyQuery->forDevice($device);
-						$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::IDENTIFIER_APP_ID);
-
-						$encryptionKeyProperty = $this->devicePropertiesRepository->findOneBy($findDevicePropertyQuery);
-
-						if ($encryptionKeyProperty === null) {
-							$this->devicePropertiesManager->create(Utils\ArrayHash::from([
-								'entity' => DevicesEntities\Devices\Properties\Variable::class,
-								'device' => $device,
-								'identifier' => Types\DevicePropertyIdentifier::IDENTIFIER_ENCRYPTION_KEY,
-								'name' => Helpers\Name::createName(
-									Types\DevicePropertyIdentifier::IDENTIFIER_ENCRYPTION_KEY,
-								),
-								'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-								'settable' => false,
-								'queryable' => false,
-								'value' => $authorization->getEncryptionKey(),
-								'format' => null,
-							]));
-						} else {
-							$this->devicePropertiesManager->update($encryptionKeyProperty, Utils\ArrayHash::from([
-								'value' => $authorization->getEncryptionKey(),
-							]));
-						}
-
-						$io->success(sprintf('Television %s was successfully paired', $device->getName()));
+					if (!$continue) {
+						continue;
 					}
 				}
+
+				try {
+					$this->challengeKey = $televisionApi
+						->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
+						->getChallengeKey();
+				} catch (Exceptions\TelevisionApiCall $ex) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.messages.pairing.failed',
+							['device' => $device->getName()],
+						),
+					);
+
+					$this->logger->error(
+						'Calling device api failed',
+						[
+							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'type' => 'discovery-cmd',
+							'exception' => BootstrapHelpers\Logger::buildException($ex),
+						],
+					);
+
+					continue;
+				}
+
+				$authorization = $this->askPinCode($io, $connector, $televisionApi);
+
+				$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
+				$findDevicePropertyQuery->forDevice($device);
+				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
+
+				$appIdProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
+
+				if ($appIdProperty === null) {
+					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
+						'entity' => DevicesEntities\Devices\Properties\Variable::class,
+						'device' => $device,
+						'identifier' => Types\DevicePropertyIdentifier::APP_ID,
+						'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
+						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+						'settable' => false,
+						'queryable' => false,
+						'value' => $authorization->getAppId(),
+						'format' => null,
+					]));
+				} else {
+					$this->devicesPropertiesManager->update($appIdProperty, Utils\ArrayHash::from([
+						'value' => $authorization->getAppId(),
+					]));
+				}
+
+				$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
+				$findDevicePropertyQuery->forDevice($device);
+				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
+
+				$encryptionKeyProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
+
+				if ($encryptionKeyProperty === null) {
+					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
+						'entity' => DevicesEntities\Devices\Properties\Variable::class,
+						'device' => $device,
+						'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
+						'name' => Helpers\Name::createName(
+							Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
+						),
+						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+						'settable' => false,
+						'queryable' => false,
+						'value' => $authorization->getEncryptionKey(),
+						'format' => null,
+					]));
+				} else {
+					$this->devicesPropertiesManager->update($encryptionKeyProperty, Utils\ArrayHash::from([
+						'value' => $authorization->getEncryptionKey(),
+					]));
+				}
+
+				$io->success(
+					$this->translator->translate(
+						'//viera-connector.cmd.discovery.messages.pairing.finished',
+						['device' => $device->getName()],
+					),
+				);
 			}
-
-			$io->success('Televisions discovery was successfully finished');
-
-			return Console\Command\Command::SUCCESS;
-		} catch (DevicesExceptions\Terminate $ex) {
-			$this->logger->error(
-				'An error occurred',
-				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'discovery-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
-				],
-			);
-
-			$io->error('Something went wrong, discovery could not be finished. Error was logged.');
-
-			$this->client->disconnect();
-
-			$this->eventLoop->stop();
-
-			return Console\Command\Command::FAILURE;
-		} catch (Throwable $ex) {
-			$this->logger->error(
-				'An unhandled error occurred',
-				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'discovery-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
-				],
-			);
-
-			$io->error('Something went wrong, discovery could not be finished. Error was logged.');
-
-			$this->client->disconnect();
-
-			$this->eventLoop->stop();
-
-			return Console\Command\Command::FAILURE;
 		}
 	}
 
@@ -603,23 +593,34 @@ class Discovery extends Console\Command\Command
 		API\TelevisionApi $televisionApi,
 	): Entities\API\AuthorizePinCode
 	{
-		$question = new Console\Question\Question('Provide television PIN code displayed on you TV');
+		$question = new Console\Question\Question(
+			$this->translator->translate('//viera-connector.cmd.discovery.questions.provide.pinCode'),
+		);
 		$question->setValidator(
 			function (string|null $answer) use ($connector, $televisionApi): Entities\API\AuthorizePinCode {
 				if ($answer !== null && $answer !== '') {
 					try {
 						return $televisionApi->authorizePinCode($answer, strval($this->challengeKey), false);
 					} catch (Exceptions\TelevisionApiCall) {
-						$this->challengeKey = $televisionApi->requestPinCode(
-							$connector->getName() ?? $connector->getIdentifier(),
-							false,
-						);
+						$this->challengeKey = $televisionApi
+							->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
+							->getChallengeKey();
 
-						throw new Exceptions\Runtime('Provided PIN code is not valid');
+						throw new Exceptions\Runtime(
+							sprintf(
+								$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+								$answer,
+							),
+						);
 					}
 				}
 
-				throw new Exceptions\Runtime('Provided PIN code is not valid');
+				throw new Exceptions\Runtime(
+					sprintf(
+						$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+						$answer,
+					),
+				);
 			},
 		);
 
@@ -627,54 +628,6 @@ class Discovery extends Console\Command\Command
 		assert($authorization instanceof Entities\API\AuthorizePinCode);
 
 		return $authorization;
-	}
-
-	private function checkAndTerminate(): void
-	{
-		if ($this->consumer->isEmpty()) {
-			if ($this->consumerTimer !== null) {
-				$this->eventLoop->cancelTimer($this->consumerTimer);
-			}
-
-			if ($this->progressBarTimer !== null) {
-				$this->eventLoop->cancelTimer($this->progressBarTimer);
-			}
-
-			$this->eventLoop->stop();
-
-		} else {
-			if (
-				$this->executedTime !== null
-				&& $this->dateTimeFactory->getNow()->getTimestamp() - $this->executedTime->getTimestamp() > self::DISCOVERY_MAX_PROCESSING_INTERVAL
-			) {
-				$this->logger->error(
-					'Discovery exceeded reserved time and have been terminated',
-					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'discovery-cmd',
-					],
-				);
-
-				if ($this->consumerTimer !== null) {
-					$this->eventLoop->cancelTimer($this->consumerTimer);
-				}
-
-				if ($this->progressBarTimer !== null) {
-					$this->eventLoop->cancelTimer($this->progressBarTimer);
-				}
-
-				$this->eventLoop->stop();
-
-				return;
-			}
-
-			$this->eventLoop->addTimer(
-				self::DISCOVERY_WAITING_INTERVAL,
-				async(function (): void {
-					$this->checkAndTerminate();
-				}),
-			);
-		}
 	}
 
 }

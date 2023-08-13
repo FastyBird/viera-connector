@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * ConsumeDeviceProperty.php
+ * DeviceProperty.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -13,9 +13,10 @@
  * @date           28.06.23
  */
 
-namespace FastyBird\Connector\Viera\Consumers\Messages;
+namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use Doctrine\DBAL;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
@@ -25,7 +26,6 @@ use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette\Utils;
-use Psr\Log;
 use Ramsey\Uuid;
 use function array_merge;
 use function assert;
@@ -39,12 +39,12 @@ use function assert;
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  *
  * @property-read DevicesModels\Devices\DevicesRepository $devicesRepository
- * @property-read DevicesModels\Devices\Properties\PropertiesRepository $propertiesRepository
- * @property-read DevicesModels\Devices\Properties\PropertiesManager $propertiesManager
+ * @property-read DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository
+ * @property-read DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager
  * @property-read DevicesUtilities\Database $databaseHelper
- * @property-read Log\LoggerInterface $logger
+ * @property-read Viera\Logger $logger
  */
-trait ConsumeDeviceProperty
+trait DeviceProperty
 {
 
 	/**
@@ -73,12 +73,12 @@ trait ConsumeDeviceProperty
 		$findDevicePropertyQuery->byDeviceId($deviceId);
 		$findDevicePropertyQuery->byIdentifier($identifier);
 
-		$property = $this->propertiesRepository->findOneBy($findDevicePropertyQuery);
+		$property = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
 		if ($property !== null && $value === null) {
 			$this->databaseHelper->transaction(
 				function () use ($property): void {
-					$this->propertiesManager->delete($property);
+					$this->devicesPropertiesManager->delete($property);
 				},
 			);
 
@@ -103,11 +103,11 @@ trait ConsumeDeviceProperty
 			$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
 			$findDevicePropertyQuery->byId($property->getId());
 
-			$property = $this->propertiesRepository->findOneBy($findDevicePropertyQuery);
+			$property = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
 			if ($property !== null) {
 				$this->databaseHelper->transaction(function () use ($property): void {
-					$this->propertiesManager->delete($property);
+					$this->devicesPropertiesManager->delete($property);
 				});
 
 				$this->logger->warning(
@@ -119,7 +119,7 @@ trait ConsumeDeviceProperty
 							'id' => $deviceId->toString(),
 						],
 						'property' => [
-							'id' => $property->getPlainId(),
+							'id' => $property->getId()->toString(),
 							'identifier' => $identifier,
 						],
 					],
@@ -144,7 +144,7 @@ trait ConsumeDeviceProperty
 			}
 
 			$property = $this->databaseHelper->transaction(
-				fn (): DevicesEntities\Devices\Properties\Property => $this->propertiesManager->create(
+				fn (): DevicesEntities\Devices\Properties\Property => $this->devicesPropertiesManager->create(
 					Utils\ArrayHash::from(array_merge(
 						[
 							'entity' => DevicesEntities\Devices\Properties\Variable::class,
@@ -174,7 +174,7 @@ trait ConsumeDeviceProperty
 						'id' => $deviceId->toString(),
 					],
 					'property' => [
-						'id' => $property->getPlainId(),
+						'id' => $property->getId()->toString(),
 						'identifier' => $identifier,
 					],
 				],
@@ -182,7 +182,7 @@ trait ConsumeDeviceProperty
 
 		} else {
 			$property = $this->databaseHelper->transaction(
-				fn (): DevicesEntities\Devices\Properties\Property => $this->propertiesManager->update(
+				fn (): DevicesEntities\Devices\Properties\Property => $this->devicesPropertiesManager->update(
 					$property,
 					Utils\ArrayHash::from(array_merge(
 						[
@@ -209,7 +209,7 @@ trait ConsumeDeviceProperty
 						'id' => $deviceId->toString(),
 					],
 					'property' => [
-						'id' => $property->getPlainId(),
+						'id' => $property->getId()->toString(),
 						'identifier' => $identifier,
 					],
 				],

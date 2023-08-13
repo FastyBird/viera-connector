@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * State.php
+ * SetDeviceConnectionState.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -10,14 +10,15 @@
  * @subpackage     Consumers
  * @since          1.0.0
  *
- * @date           01.07.23
+ * @date           10.08.23
  */
 
-namespace FastyBird\Connector\Viera\Consumers\Messages;
+namespace FastyBird\Connector\Viera\Queue\Consumers;
 
-use FastyBird\Connector\Viera\Consumers\Consumer;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
-use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Connector\Viera\Queries;
+use FastyBird\Connector\Viera\Queue;
 use FastyBird\Library\Metadata;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
@@ -28,28 +29,29 @@ use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\States as DevicesStates;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette;
-use Psr\Log;
 
 /**
- * Device state message consumer
+ * Store device connection state message consumer
  *
  * @package        FastyBird:VieraConnector!
  * @subpackage     Consumers
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class State implements Consumer
+final class StoreDeviceConnectionState implements Queue\Consumer
 {
 
 	use Nette\SmartObject;
 
 	public function __construct(
-		private readonly Helpers\Property $propertyStateHelper,
+		private readonly Viera\Logger $logger,
 		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicePropertiesRepository,
+		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
 		private readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
+		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private readonly DevicesUtilities\DeviceConnection $deviceConnectionManager,
-		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
+		private readonly DevicesUtilities\DevicePropertiesStates $devicePropertiesStateManager,
+		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStateManager,
 	)
 	{
 	}
@@ -61,17 +63,32 @@ final class State implements Consumer
 	 */
 	public function consume(Entities\Messages\Entity $entity): bool
 	{
-		if (!$entity instanceof Entities\Messages\DeviceState) {
+		if (!$entity instanceof Entities\Messages\StoreDeviceConnectionState) {
 			return false;
 		}
 
-		$findDeviceQuery = new DevicesQueries\FindDevices();
+		$findDeviceQuery = new Queries\FindDevices();
 		$findDeviceQuery->byConnectorId($entity->getConnector());
-		$findDeviceQuery->byIdentifier($entity->getIdentifier());
+		$findDeviceQuery->byId($entity->getDevice());
 
 		$device = $this->devicesRepository->findOneBy($findDeviceQuery, Entities\VieraDevice::class);
 
 		if ($device === null) {
+			$this->logger->error(
+				'Device could not be loaded',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'store-device-connection-state-message-consumer',
+					'connector' => [
+						'id' => $entity->getConnector()->toString(),
+					],
+					'device' => [
+						'id' => $entity->getDevice()->toString(),
+					],
+					'data' => $entity->toArray(),
+				],
+			);
+
 			return true;
 		}
 
@@ -87,19 +104,18 @@ final class State implements Consumer
 
 			if (
 				$entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_DISCONNECTED)
-				|| $entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_STOPPED)
 				|| $entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_LOST)
+				|| $entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_ALERT)
 				|| $entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_UNKNOWN)
 			) {
-				$findDevicePropertiesQuery = new DevicesQueries\FindDeviceProperties();
+				$findDevicePropertiesQuery = new DevicesQueries\FindDeviceDynamicProperties();
 				$findDevicePropertiesQuery->forDevice($device);
 
-				foreach ($this->devicePropertiesRepository->findAllBy($findDevicePropertiesQuery) as $property) {
-					if (!$property instanceof DevicesEntities\Devices\Properties\Dynamic) {
-						continue;
-					}
-
-					$this->propertyStateHelper->setValue(
+				foreach ($this->devicesPropertiesRepository->findAllBy(
+					$findDevicePropertiesQuery,
+					DevicesEntities\Devices\Properties\Dynamic::class,
+				) as $property) {
+					$this->devicePropertiesStateManager->setValue(
 						$property,
 						Nette\Utils\ArrayHash::from([
 							DevicesStates\Property::VALID_KEY => false,
@@ -113,12 +129,14 @@ final class State implements Consumer
 				$channels = $this->channelsRepository->findAllBy($findChannelsQuery);
 
 				foreach ($channels as $channel) {
-					foreach ($channel->getProperties() as $property) {
-						if (!$property instanceof DevicesEntities\Channels\Properties\Dynamic) {
-							continue;
-						}
+					$findChannelPropertiesQuery = new DevicesQueries\FindChannelDynamicProperties();
+					$findChannelPropertiesQuery->forChannel($channel);
 
-						$this->propertyStateHelper->setValue(
+					foreach ($this->channelsPropertiesRepository->findAllBy(
+						$findChannelPropertiesQuery,
+						DevicesEntities\Channels\Properties\Dynamic::class,
+					) as $property) {
+						$this->channelPropertiesStateManager->setValue(
 							$property,
 							Nette\Utils\ArrayHash::from([
 								DevicesStates\Property::VALID_KEY => false,
@@ -130,12 +148,15 @@ final class State implements Consumer
 		}
 
 		$this->logger->debug(
-			'Consumed device state message',
+			'Consumed device online status message',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'state-message-consumer',
+				'type' => 'store-device-connection-state-message-consumer',
+				'connector' => [
+					'id' => $entity->getConnector()->toString(),
+				],
 				'device' => [
-					'id' => $device->getPlainId(),
+					'id' => $device->getId()->toString(),
 				],
 				'data' => $entity->toArray(),
 			],

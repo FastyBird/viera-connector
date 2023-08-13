@@ -15,6 +15,8 @@
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
+use Orisai\ObjectMapper;
+
 /**
  * Viera base message data entity interface
  *
@@ -23,7 +25,7 @@ namespace FastyBird\Connector\Viera\Entities\Messages;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-interface Entity
+interface Entity extends ObjectMapper\MappedObject
 {
 
 	/**

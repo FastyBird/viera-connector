@@ -15,9 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\API;
 
-use FastyBird\Connector\Viera\Entities;
-use Nette\Utils;
-use function strval;
+use Orisai\ObjectMapper;
 
 /**
  * Device specs info entity
@@ -27,22 +25,50 @@ use function strval;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class DeviceSpecs implements Entities\API\Entity
+class DeviceSpecs implements Entity
 {
 
-	private string $serialNumber;
-
 	public function __construct(
-		private readonly string|null $deviceType = null,
-		private readonly string|null $friendlyName = null,
-		private readonly string|null $manufacturer = null,
-		private readonly string|null $modelName = null,
-		private readonly string|null $modelNumber = null,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('device_type')]
+		private readonly string|null $deviceType,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('friendly_name')]
+		private readonly string|null $friendlyName,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		private readonly string|null $manufacturer,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('model_name')]
+		private readonly string|null $modelName,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('model_number')]
+		private readonly string|null $modelNumber,
+		#[ObjectMapper\Rules\AnyOf([
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+			new ObjectMapper\Rules\NullValue(),
+		])]
+		#[ObjectMapper\Modifiers\FieldName('serial_number')]
+		private readonly string $serialNumber,
+		#[ObjectMapper\Rules\BoolValue()]
+		#[ObjectMapper\Modifiers\FieldName('requires_encryption')]
 		private bool $requiresEncryption = false,
-		string|null $UDN = null,
 	)
 	{
-		$this->serialNumber = Utils\Strings::substring(strval($UDN), 5);
 	}
 
 	public function getDeviceType(): string|null

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/" s:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">
+    <s:Body>
+        <u:X_LaunchAppResponse xmlns:u="urn:panasonic-com:service:p00NetworkControl:1">
+            <X_SessionId>1</X_SessionId>
+        </u:X_LaunchAppResponse>
+    </s:Body>
+</s:Envelope>

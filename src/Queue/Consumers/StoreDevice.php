@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * ConfigureDevice.php
+ * StoreDevice.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -13,12 +13,13 @@
  * @date           28.06.23
  */
 
-namespace FastyBird\Connector\Viera\Consumers\Messages;
+namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use Doctrine\DBAL;
-use FastyBird\Connector\Viera\Consumers\Consumer;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Connector\Viera\Queue\Consumer;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
@@ -29,38 +30,37 @@ use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette;
 use Nette\Utils;
-use Psr\Log;
 use function array_map;
 use function array_merge;
 use function assert;
 
 /**
- * New device message consumer
+ * Store device details message consumer
  *
  * @package        FastyBird:VieraConnector!
  * @subpackage     Consumers
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class ConfigureDevice implements Consumer
+final class StoreDevice implements Consumer
 {
 
+	use DeviceProperty;
+	use ChannelProperty;
 	use Nette\SmartObject;
-	use ConsumeDeviceProperty;
-	use ConsumeChannelProperty;
 
 	public function __construct(
+		protected readonly Viera\Logger $logger,
+		protected readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
+		protected readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		protected readonly DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager,
+		protected readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
+		protected readonly DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
+		protected readonly DevicesModels\Channels\Properties\PropertiesManager $channelsPropertiesManager,
+		protected readonly DevicesUtilities\Database $databaseHelper,
 		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
-		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
 		private readonly DevicesModels\Devices\DevicesManager $devicesManager,
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $propertiesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesManager $propertiesManager,
-		private readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
 		private readonly DevicesModels\Channels\ChannelsManager $channelsManager,
-		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelPropertiesRepository,
-		private readonly DevicesModels\Channels\Properties\PropertiesManager $channelsPropertiesManager,
-		private readonly DevicesUtilities\Database $databaseHelper,
-		private readonly Log\LoggerInterface $logger = new Log\NullLogger(),
 	)
 	{
 	}
@@ -74,7 +74,7 @@ final class ConfigureDevice implements Consumer
 	 */
 	public function consume(Entities\Messages\Entity $entity): bool
 	{
-		if (!$entity instanceof Entities\Messages\ConfigureDevice) {
+		if (!$entity instanceof Entities\Messages\StoreDevice) {
 			return false;
 		}
 
@@ -112,16 +112,17 @@ final class ConfigureDevice implements Consumer
 				},
 			);
 
-			$this->logger->info(
+			$this->logger->debug(
 				'Creating new device',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'configure-device-message-consumer',
+					'type' => 'store-device-message-consumer',
 					'device' => [
-						'id' => $device->getPlainId(),
+						'id' => $device->getId()->toString(),
 						'identifier' => $entity->getIdentifier(),
 						'address' => $entity->getIpAddress(),
 					],
+					'data' => $entity->toArray(),
 				],
 			);
 		} else {
@@ -140,10 +141,11 @@ final class ConfigureDevice implements Consumer
 				'Device was updated',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'configure-device-message-consumer',
+					'type' => 'store-device-message-consumer',
 					'device' => [
-						'id' => $device->getPlainId(),
+						'id' => $device->getId()->toString(),
 					],
+					'data' => $entity->toArray(),
 				],
 			);
 		}
@@ -153,72 +155,72 @@ final class ConfigureDevice implements Consumer
 			$device->getId(),
 			$entity->getIpAddress(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_IP_ADDRESS,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_IP_ADDRESS),
+			Types\DevicePropertyIdentifier::IP_ADDRESS,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getPort(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UINT),
-			Types\DevicePropertyIdentifier::IDENTIFIER_PORT,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_PORT),
+			Types\DevicePropertyIdentifier::PORT,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::PORT),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getModel(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MODEL,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MODEL),
+			Types\DevicePropertyIdentifier::MODEL,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::MODEL),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getManufacturer(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MANUFACTURER,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MANUFACTURER),
+			Types\DevicePropertyIdentifier::MANUFACTURER,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::MANUFACTURER),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getSerialNumber(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_SERIAL_NUMBER,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_SERIAL_NUMBER),
+			Types\DevicePropertyIdentifier::SERIAL_NUMBER,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::SERIAL_NUMBER),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getMacAddress(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MAC_ADDRESS,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_HARDWARE_MAC_ADDRESS),
+			Types\DevicePropertyIdentifier::MAC_ADDRESS,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->isEncrypted(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
-			Types\DevicePropertyIdentifier::IDENTIFIER_ENCRYPTED,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_ENCRYPTED),
+			Types\DevicePropertyIdentifier::ENCRYPTED,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTED),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getAppId(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_APP_ID,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_APP_ID),
+			Types\DevicePropertyIdentifier::APP_ID,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
 		);
 		$this->setDeviceProperty(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$entity->getEncryptionKey(),
 			MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-			Types\DevicePropertyIdentifier::IDENTIFIER_ENCRYPTION_KEY,
-			Helpers\Name::createName(Types\DevicePropertyIdentifier::IDENTIFIER_ENCRYPTION_KEY),
+			Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
+			Helpers\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
 		);
 
 		$this->databaseHelper->transaction(function () use ($entity, $device): bool {
@@ -230,6 +232,7 @@ final class ConfigureDevice implements Consumer
 
 			if ($channel === null) {
 				$channel = $this->channelsManager->create(Utils\ArrayHash::from([
+					'entity' => DevicesEntities\Channels\Channel::class,
 					'device' => $device,
 					'identifier' => Types\ChannelType::TELEVISION,
 				]));
@@ -238,13 +241,14 @@ final class ConfigureDevice implements Consumer
 					'Creating new device channel',
 					[
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'configure-device-message-consumer',
+						'type' => 'store-device-message-consumer',
 						'device' => [
-							'id' => $device->getPlainId(),
+							'id' => $device->getId()->toString(),
 						],
 						'channel' => [
-							'id' => $channel->getPlainId(),
+							'id' => $channel->getId()->toString(),
 						],
+						'data' => $entity->toArray(),
 					],
 				);
 			}
@@ -254,8 +258,8 @@ final class ConfigureDevice implements Consumer
 				$channel->getId(),
 				null,
 				MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
-				Types\ChannelPropertyIdentifier::IDENTIFIER_STATE,
-				Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_STATE),
+				Types\ChannelPropertyIdentifier::STATE,
+				Helpers\Name::createName(Types\ChannelPropertyIdentifier::STATE),
 				null,
 				true,
 				true,
@@ -266,8 +270,8 @@ final class ConfigureDevice implements Consumer
 				$channel->getId(),
 				null,
 				MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UCHAR),
-				Types\ChannelPropertyIdentifier::IDENTIFIER_VOLUME,
-				Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_VOLUME),
+				Types\ChannelPropertyIdentifier::VOLUME,
+				Helpers\Name::createName(Types\ChannelPropertyIdentifier::VOLUME),
 				[
 					0,
 					100,
@@ -281,8 +285,8 @@ final class ConfigureDevice implements Consumer
 				$channel->getId(),
 				null,
 				MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
-				Types\ChannelPropertyIdentifier::IDENTIFIER_MUTE,
-				Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_MUTE),
+				Types\ChannelPropertyIdentifier::MUTE,
+				Helpers\Name::createName(Types\ChannelPropertyIdentifier::MUTE),
 				null,
 				true,
 				true,
@@ -293,8 +297,8 @@ final class ConfigureDevice implements Consumer
 				$channel->getId(),
 				null,
 				MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
-				Types\ChannelPropertyIdentifier::IDENTIFIER_HDMI,
-				Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_HDMI),
+				Types\ChannelPropertyIdentifier::HDMI,
+				Helpers\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
 				$entity->getHdmi() !== [] ? array_map(
 					static fn (Entities\Messages\DeviceHdmi|Entities\Messages\DeviceApplication $item): array => [
 						Helpers\Name::sanitizeEnumName($item->getName()),
@@ -311,8 +315,8 @@ final class ConfigureDevice implements Consumer
 				$channel->getId(),
 				null,
 				MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
-				Types\ChannelPropertyIdentifier::IDENTIFIER_APPLICATION,
-				Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_APPLICATION),
+				Types\ChannelPropertyIdentifier::APPLICATION,
+				Helpers\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
 				$entity->getApplications() !== [] ? array_map(
 					static fn (Entities\Messages\DeviceHdmi|Entities\Messages\DeviceApplication $item): array => [
 						Helpers\Name::sanitizeEnumName($item->getName()),
@@ -329,8 +333,8 @@ final class ConfigureDevice implements Consumer
 				$channel->getId(),
 				null,
 				MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
-				Types\ChannelPropertyIdentifier::IDENTIFIER_INPUT_SOURCE,
-				Helpers\Name::createName(Types\ChannelPropertyIdentifier::IDENTIFIER_INPUT_SOURCE),
+				Types\ChannelPropertyIdentifier::INPUT_SOURCE,
+				Helpers\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
 				array_merge(
 					[
 						[
@@ -358,9 +362,9 @@ final class ConfigureDevice implements Consumer
 			'Consumed device found message',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'configure-device-message-consumer',
+				'type' => 'store-device-message-consumer',
 				'device' => [
-					'id' => $device->getPlainId(),
+					'id' => $device->getId()->toString(),
 				],
 				'data' => $entity->toArray(),
 			],

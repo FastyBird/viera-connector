@@ -15,15 +15,17 @@
 
 namespace FastyBird\Connector\Viera\DI;
 
+use Clue\React\Multicast;
 use Doctrine\Persistence;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Clients;
 use FastyBird\Connector\Viera\Commands;
 use FastyBird\Connector\Viera\Connector;
-use FastyBird\Connector\Viera\Consumers;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Hydrators;
+use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Schemas;
 use FastyBird\Connector\Viera\Subscribers;
 use FastyBird\Connector\Viera\Writers;
@@ -32,6 +34,7 @@ use FastyBird\Library\Exchange\DI as ExchangeDI;
 use FastyBird\Module\Devices\DI as DevicesDI;
 use Nette\DI;
 use Nette\Schema;
+use React\Socket;
 use stdClass;
 use function assert;
 use const DIRECTORY_SEPARATOR;
@@ -82,67 +85,157 @@ class VieraExtension extends DI\CompilerExtension
 		$configuration = $this->getConfig();
 		assert($configuration instanceof stdClass);
 
-		$writer = null;
+		$logger = $builder->addDefinition($this->prefix('logger'), new DI\Definitions\ServiceDefinition())
+			->setType(Viera\Logger::class)
+			->setAutowired(false);
+
+		/**
+		 * WRITERS
+		 */
 
 		if ($configuration->writer === Writers\Event::NAME) {
-			$writer = $builder->addDefinition($this->prefix('writers.event'), new DI\Definitions\ServiceDefinition())
-				->setType(Writers\Event::class)
-				->setAutowired(false);
+			$builder->addFactoryDefinition($this->prefix('writers.event'))
+				->setImplement(Writers\EventFactory::class)
+				->getResultDefinition()
+				->setType(Writers\Event::class);
 		} elseif ($configuration->writer === Writers\Exchange::NAME) {
-			$writer = $builder->addDefinition($this->prefix('writers.exchange'), new DI\Definitions\ServiceDefinition())
+			$builder->addFactoryDefinition($this->prefix('writers.exchange'))
+				->setImplement(Writers\ExchangeFactory::class)
+				->getResultDefinition()
 				->setType(Writers\Exchange::class)
-				->setAutowired(false)
 				->addTag(ExchangeDI\ExchangeExtension::CONSUMER_STATE, false);
 		} elseif ($configuration->writer === Writers\Periodic::NAME) {
-			$writer = $builder->addDefinition($this->prefix('writers.periodic'), new DI\Definitions\ServiceDefinition())
-				->setType(Writers\Periodic::class)
-				->setAutowired(false);
+			$builder->addFactoryDefinition($this->prefix('writers.periodic'))
+				->setImplement(Writers\PeriodicFactory::class)
+				->getResultDefinition()
+				->setType(Writers\Periodic::class);
 		}
+
+		/**
+		 * CLIENTS
+		 */
+
+		$builder->addDefinition(
+			$this->prefix('clients.multicastFactory'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Multicast\Factory::class);
 
 		$builder->addFactoryDefinition($this->prefix('clients.television'))
 			->setImplement(Clients\TelevisionFactory::class)
 			->getResultDefinition()
 			->setType(Clients\Television::class)
 			->setArguments([
-				'writer' => $writer,
+				'logger' => $logger,
 			]);
 
 		$builder->addFactoryDefinition($this->prefix('clients.discovery'))
 			->setImplement(Clients\DiscoveryFactory::class)
 			->getResultDefinition()
-			->setType(Clients\Discovery::class);
+			->setType(Clients\Discovery::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		/**
+		 * API
+		 */
+
+		$socketConnector = $builder->addDefinition(
+			$this->prefix('clients.socketsConnector'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Socket\Connector::class)
+			->setArguments([
+				'context' => [
+					'dns' => '8.8.8.8',
+					'timeout' => 10,
+					'tls' => [
+						'verify_peer' => false,
+						'verify_peer_name' => false,
+						'check_hostname' => false,
+					],
+				],
+			])
+			->setAutowired(false);
 
 		$builder->addFactoryDefinition($this->prefix('api.televisionApi'))
 			->setImplement(API\TelevisionApiFactory::class)
 			->getResultDefinition()
-			->setType(API\TelevisionApi::class);
+			->setType(API\TelevisionApi::class)
+			->setArguments([
+				'logger' => $logger,
+				'socketConnector' => $socketConnector,
+			]);
 
 		$builder->addDefinition($this->prefix('api.httpClient'), new DI\Definitions\ServiceDefinition())
 			->setType(API\HttpClientFactory::class);
 
-		$builder->addDefinition(
-			$this->prefix('consumers.messages.device.configured'),
-			new DI\Definitions\ServiceDefinition(),
-		)
-			->setType(Consumers\Messages\ConfigureDevice::class);
+		$builder->addDefinition($this->prefix('api.connectionsManager'), new DI\Definitions\ServiceDefinition())
+			->setType(API\ConnectionManager::class);
+
+		/**
+		 * MESSAGES QUEUE
+		 */
 
 		$builder->addDefinition(
-			$this->prefix('consumers.messages.device.state'),
+			$this->prefix('queue.consumers.store.device'),
 			new DI\Definitions\ServiceDefinition(),
 		)
-			->setType(Consumers\Messages\State::class);
-
-		$builder->addDefinition(
-			$this->prefix('consumers.messages.channel.propertyState'),
-			new DI\Definitions\ServiceDefinition(),
-		)
-			->setType(Consumers\Messages\ChannelPropertyState::class);
-
-		$builder->addDefinition($this->prefix('consumers.messages'), new DI\Definitions\ServiceDefinition())
-			->setType(Consumers\Messages::class)
+			->setType(Queue\Consumers\StoreDevice::class)
 			->setArguments([
-				'consumers' => $builder->findByType(Consumers\Consumer::class),
+				'logger' => $logger,
 			]);
+
+		$builder->addDefinition(
+			$this->prefix('queue.consumers.store.deviceConnectionState'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Queue\Consumers\StoreDeviceConnectionState::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		$builder->addDefinition(
+			$this->prefix('consumers.messages.store.channelPropertyState'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Queue\Consumers\StoreChannelPropertyState::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		$builder->addDefinition(
+			$this->prefix('queue.consumers.write.channelPropertyState'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Queue\Consumers\WriteChannelPropertyState::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		$builder->addDefinition(
+			$this->prefix('queue.consumers'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Queue\Consumers::class)
+			->setArguments([
+				'consumers' => $builder->findByType(Queue\Consumer::class),
+				'logger' => $logger,
+			]);
+
+		$builder->addDefinition(
+			$this->prefix('queue.queue'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Queue\Queue::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		/**
+		 * SUBSCRIBERS
+		 */
 
 		$builder->addDefinition($this->prefix('subscribers.properties'), new DI\Definitions\ServiceDefinition())
 			->setType(Subscribers\Properties::class);
@@ -150,11 +243,19 @@ class VieraExtension extends DI\CompilerExtension
 		$builder->addDefinition($this->prefix('subscribers.controls'), new DI\Definitions\ServiceDefinition())
 			->setType(Subscribers\Controls::class);
 
+		/**
+		 * JSON-API SCHEMAS
+		 */
+
 		$builder->addDefinition($this->prefix('schemas.connector.viera'), new DI\Definitions\ServiceDefinition())
 			->setType(Schemas\VieraConnector::class);
 
 		$builder->addDefinition($this->prefix('schemas.device.viera'), new DI\Definitions\ServiceDefinition())
 			->setType(Schemas\VieraDevice::class);
+
+		/**
+		 * JSON-API HYDRATORS
+		 */
 
 		$builder->addDefinition($this->prefix('hydrators.connector.viera'), new DI\Definitions\ServiceDefinition())
 			->setType(Hydrators\VieraConnector::class);
@@ -162,33 +263,53 @@ class VieraExtension extends DI\CompilerExtension
 		$builder->addDefinition($this->prefix('hydrators.device.viera'), new DI\Definitions\ServiceDefinition())
 			->setType(Hydrators\VieraDevice::class);
 
-		$builder->addDefinition($this->prefix('helpers.property'), new DI\Definitions\ServiceDefinition())
-			->setType(Helpers\Property::class);
+		/**
+		 * HELPERS
+		 */
 
-		$builder->addDefinition($this->prefix('helpers.name'), new DI\Definitions\ServiceDefinition())
-			->setType(Helpers\Name::class);
+		$builder->addDefinition($this->prefix('helpers.entity'), new DI\Definitions\ServiceDefinition())
+			->setType(Helpers\Entity::class);
 
-		$builder->addFactoryDefinition($this->prefix('executor.factory'))
-			->setImplement(Connector\ConnectorFactory::class)
-			->addTag(
-				DevicesDI\DevicesExtension::CONNECTOR_TYPE_TAG,
-				Entities\VieraConnector::CONNECTOR_TYPE,
-			)
-			->getResultDefinition()
-			->setType(Connector\Connector::class)
-			->setArguments();
+		/**
+		 * COMMANDS
+		 */
 
 		$builder->addDefinition($this->prefix('commands.initialize'), new DI\Definitions\ServiceDefinition())
-			->setType(Commands\Initialize::class);
-
-		$builder->addDefinition($this->prefix('commands.discovery'), new DI\Definitions\ServiceDefinition())
-			->setType(Commands\Discovery::class);
+			->setType(Commands\Initialize::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
 
 		$builder->addDefinition($this->prefix('commands.device'), new DI\Definitions\ServiceDefinition())
-			->setType(Commands\Devices::class);
+			->setType(Commands\Devices::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
 
 		$builder->addDefinition($this->prefix('commands.execute'), new DI\Definitions\ServiceDefinition())
 			->setType(Commands\Execute::class);
+
+		$builder->addDefinition($this->prefix('commands.discovery'), new DI\Definitions\ServiceDefinition())
+			->setType(Commands\Discovery::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		/**
+		 * CONNECTOR
+		 */
+
+		$builder->addFactoryDefinition($this->prefix('connector'))
+			->setImplement(Connector\ConnectorFactory::class)
+			->addTag(
+				DevicesDI\DevicesExtension::CONNECTOR_TYPE_TAG,
+				Entities\VieraConnector::TYPE,
+			)
+			->getResultDefinition()
+			->setType(Connector\Connector::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
 	}
 
 	/**
