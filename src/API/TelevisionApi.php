@@ -123,10 +123,10 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		private readonly string|null $encryptionKey,
 		private readonly string|null $macAddress,
 		private readonly HttpClientFactory $httpClientFactory,
+		private readonly SocketClientFactory $socketClientFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
 		private readonly Helpers\Entity $entityHelper,
 		private readonly Viera\Logger $logger,
-		private readonly Socket\Connector $socketConnector,
 	)
 	{
 		$this->isEncrypted = $this->appId !== null && $this->encryptionKey !== null;
@@ -135,6 +135,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	/**
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function connect(bool $subscribe = false): void
 	{
@@ -150,6 +151,9 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		$this->isConnected = true;
 	}
 
+	/**
+	 * @throws Exceptions\TelevisionApiError
+	 */
 	public function disconnect(): void
 	{
 		$this->session = null;
@@ -168,6 +172,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function requestSessionId(
 		bool $async = true,
@@ -204,20 +209,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -244,6 +245,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\DeviceSpecs)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getSpecs(
 		bool $async = true,
@@ -292,6 +294,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getApps(
 		bool $async = true,
@@ -318,20 +321,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -359,6 +358,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getVectorInfo(
 		bool $async = true,
@@ -385,20 +385,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -426,6 +422,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getVolume(
 		bool $async = true,
@@ -452,20 +449,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -494,6 +487,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function setVolume(
 		int $volume,
@@ -534,20 +528,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -575,6 +565,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getMute(
 		bool $async = true,
@@ -601,20 +592,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -642,6 +629,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function setMute(
 		bool $status,
@@ -672,20 +660,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -713,6 +697,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function sendKey(
 		Types\ActionKey|string $key,
@@ -734,26 +719,22 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				self::URL_CONTROL_NRC,
 				self::URN_REMOTE_CONTROL,
 				'X_SendKey',
-				sprintf('<X_KeyEvent>%s</X_KeyEvent>', is_string($key) ? $key : strval($key->getValue())),
+				sprintf('<X_KeyEvent>%s</X_KeyEvent>', is_string($key) ? $key : $key->getValue()),
 				'u',
 			);
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -781,6 +762,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function launchApplication(
 		string $application,
@@ -812,20 +794,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -921,6 +899,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function needsCrypto(
 		bool $async = true,
@@ -958,6 +937,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @return ($runLoop is false ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 *
+	 * @throws InvalidArgumentException
 	 */
 	public function livenessProbe(
 		float $timeout = 1.5,
@@ -977,25 +958,27 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			}
 		});
 
-		$this->socketConnector->connect($this->ipAddress . ':' . $this->port)
+		$this->socketClientFactory
+			->create()
+			->connect($this->ipAddress . ':' . $this->port)
 			->then(function () use ($deferred, $timeoutTimer, $runLoop, &$result): void {
-				$this->eventLoop->cancelTimer($timeoutTimer);
+					$this->eventLoop->cancelTimer($timeoutTimer);
 
-				$deferred->resolve(true);
-				$result = true;
+					$deferred->resolve(true);
+					$result = true;
 
 				if ($runLoop) {
 					$this->eventLoop->stop();
 				}
 			})
-			->otherwise(function () use ($deferred, $runLoop, &$result): void {
-				$deferred->resolve(false);
-				$result = false;
+				->otherwise(function () use ($deferred, $runLoop, &$result): void {
+					$deferred->resolve(false);
+					$result = false;
 
-				if ($runLoop) {
-					$this->eventLoop->stop();
-				}
-			});
+					if ($runLoop) {
+						$this->eventLoop->stop();
+					}
+				});
 
 		if ($runLoop) {
 			$this->eventLoop->run();
@@ -1008,6 +991,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @return ($runLoop is false ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 *
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function isTurnedOn(bool $runLoop = false): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
 	{
@@ -1088,6 +1073,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\RequestPinCode)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function requestPinCode(
 		string $name,
@@ -1110,20 +1096,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -1150,6 +1132,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\AuthorizePinCode)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function authorizePinCode(
 		string $pinCode,
@@ -1163,10 +1146,10 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 		if ($iv === false) {
 			if ($async) {
-				return Promise\reject(new Exceptions\TelevisionApiCall('Pairing challenge key could not be parsed'));
+				return Promise\reject(new Exceptions\TelevisionApiError('Pairing challenge key could not be parsed'));
 			}
 
-			throw new Exceptions\TelevisionApiCall('Pairing challenge key could not be parsed');
+			throw new Exceptions\TelevisionApiError('Pairing challenge key could not be parsed');
 		}
 
 		/** @var array<int> $iv */
@@ -1218,20 +1201,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not encrypt request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not encrypt request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -1251,20 +1230,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		} catch (Exceptions\Encrypt $ex) {
 			if ($async) {
 				return Promise\reject(
-					new Exceptions\TelevisionApiCall(
+					new Exceptions\TelevisionApiError(
 						'Could not prepare request',
-						null,
-						null,
 						$ex->getCode(),
 						$ex,
 					),
 				);
 			}
 
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not prepare request',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -1338,6 +1313,9 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		return $deferred->promise();
 	}
 
+	/**
+	 * @throws Exceptions\TelevisionApiError
+	 */
 	private function subscribeEvents(): bool
 	{
 		if ($this->eventsServer !== null) {
@@ -1422,7 +1400,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		);
 
 		try {
-			$client = $this->httpClientFactory->createClient(false);
+			$client = $this->httpClientFactory->create(false);
 		} catch (InvalidArgumentException $ex) {
 			$this->logger->error('Could not get http client', [
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
@@ -1482,6 +1460,9 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		return true;
 	}
 
+	/**
+	 * @throws Exceptions\TelevisionApiError
+	 */
 	private function unsubscribeEvents(): void
 	{
 		$this->subscriptionCreated = false;
@@ -1491,7 +1472,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		}
 
 		try {
-			$client = $this->httpClientFactory->createClient(false);
+			$client = $this->httpClientFactory->create(false);
 		} catch (InvalidArgumentException $ex) {
 			$this->logger->error('Could not get http client', [
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
@@ -2055,7 +2036,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		if ($async) {
 			try {
 				$this->httpClientFactory
-					->createClient()
+					->create()
 					->send($request)
 					->then(
 						function (Message\ResponseInterface $response) use ($deferred, $request): void {
@@ -2118,7 +2099,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 		try {
 			$response = $this->httpClientFactory
-				->createClient(false)
+				->create(false)
 				->send($request);
 
 			try {
@@ -2198,7 +2179,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		if ($async) {
 			try {
 				$this->httpClientFactory
-					->createClient()
+					->create()
 					->send($request)
 					->then(
 						function (Message\ResponseInterface $response) use ($deferred, $request): void {
@@ -2261,7 +2242,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 		try {
 			$response = $this->httpClientFactory
-				->createClient(false)
+				->create(false)
 				->send($request);
 
 			try {
@@ -2312,7 +2293,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @param array<string, string|array<string>>|null $headers
 	 * @param array<string, mixed> $params
 	 *
-	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function createRequest(
 		string $method,
@@ -2330,10 +2311,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		try {
 			return new Request($method, $url, $headers, $body);
 		} catch (Exceptions\InvalidArgument $ex) {
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not create request instance',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);
@@ -2342,7 +2321,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @throws Exceptions\Encrypt
-	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function createXmlRequest(
 		string $url,
@@ -2411,10 +2390,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				$body,
 			);
 		} catch (Exceptions\InvalidArgument $ex) {
-			throw new Exceptions\TelevisionApiCall(
+			throw new Exceptions\TelevisionApiError(
 				'Could not create request instance',
-				null,
-				null,
 				$ex->getCode(),
 				$ex,
 			);

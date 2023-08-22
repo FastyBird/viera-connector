@@ -25,7 +25,6 @@ use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
-use FastyBird\Module\Devices\Queries as DevicesQueries;
 use Nette\Localization;
 use Nette\Utils;
 use Symfony\Component\Console;
@@ -147,7 +146,7 @@ class Initialize extends Console\Command\Command
 			for ($i = 1; $i <= 100; $i++) {
 				$identifier = sprintf($identifierPattern, $i);
 
-				$findConnectorQuery = new DevicesQueries\FindConnectors();
+				$findConnectorQuery = new Queries\FindConnectors();
 				$findConnectorQuery->byIdentifier($identifier);
 
 				if ($this->connectorsRepository->findOneBy(

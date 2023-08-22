@@ -2,7 +2,6 @@
 
 namespace FastyBird\Connector\Viera\Tests\Cases\Unit\Clients;
 
-use Clue\React\Multicast;
 use Error;
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Clients;
@@ -10,7 +9,7 @@ use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
-use FastyBird\Connector\Viera\Tests\Cases\Unit\DbTestCase;
+use FastyBird\Connector\Viera\Tests;
 use FastyBird\Library\Bootstrap\Exceptions as BootstrapExceptions;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -26,7 +25,7 @@ use React\Socket;
 use RuntimeException;
 use function strval;
 
-final class DiscoveryTest extends DbTestCase
+final class DiscoveryTest extends Tests\Cases\Unit\DbTestCase
 {
 
 	/**
@@ -97,13 +96,13 @@ final class DiscoveryTest extends DbTestCase
 				}),
 			);
 
-		$multicastFactory = $this->createMock(Multicast\Factory::class);
+		$multicastFactory = $this->createMock(Clients\MulticastFactory::class);
 		$multicastFactory
-			->method('createSender')
+			->method('create')
 			->willReturn($sender);
 
 		$this->mockContainerService(
-			Multicast\Factory::class,
+			Clients\MulticastFactory::class,
 			$multicastFactory,
 		);
 
@@ -173,7 +172,7 @@ final class DiscoveryTest extends DbTestCase
 
 		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
 		$httpClientFactory
-			->method('createClient')
+			->method('create')
 			->willReturnCallback(
 				static function (bool $async) use ($httpAsyncClient, $httpSyncClient) {
 					if ($async) {
@@ -224,7 +223,12 @@ final class DiscoveryTest extends DbTestCase
 			)
 			->willReturn($socketConnectorPromise);
 
-		$this->mockContainerService(Socket\Connector::class, $socketConnector);
+		$socketClientFactory = $this->createMock(API\SocketClientFactory::class);
+		$socketClientFactory
+			->method('create')
+			->willReturn($socketConnector);
+
+		$this->mockContainerService(API\SocketClientFactory::class, $socketClientFactory);
 
 		$connectorsRepository = $this->getContainer()->getByType(DevicesModels\Connectors\ConnectorsRepository::class);
 

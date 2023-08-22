@@ -55,6 +55,11 @@ class DevicePropertyIdentifier extends Consistence\Enum\Enum
 
 	public const STATE_READING_DELAY = 'state_reading_delay';
 
+	public function getValue(): string
+	{
+		return strval(parent::getValue());
+	}
+
 	public function __toString(): string
 	{
 		return strval(self::getValue());

@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  * @since          1.0.0
  *
  * @date           28.06.23
@@ -19,7 +19,8 @@ use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Helpers;
-use FastyBird\Connector\Viera\Queue\Consumer;
+use FastyBird\Connector\Viera\Queries;
+use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
@@ -38,11 +39,11 @@ use function assert;
  * Store device details message consumer
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class StoreDevice implements Consumer
+final class StoreDevice implements Queue\Consumer
 {
 
 	use DeviceProperty;
@@ -78,21 +79,20 @@ final class StoreDevice implements Consumer
 			return false;
 		}
 
-		$findDeviceQuery = new DevicesQueries\FindDevices();
+		$findDeviceQuery = new Queries\FindDevices();
 		$findDeviceQuery->byConnectorId($entity->getConnector());
 		$findDeviceQuery->byIdentifier($entity->getIdentifier());
 
 		$device = $this->devicesRepository->findOneBy($findDeviceQuery, Entities\VieraDevice::class);
 
 		if ($device === null) {
-			$findConnectorQuery = new DevicesQueries\FindConnectors();
+			$findConnectorQuery = new Queries\FindConnectors();
 			$findConnectorQuery->byId($entity->getConnector());
 
 			$connector = $this->connectorsRepository->findOneBy(
 				$findConnectorQuery,
 				Entities\VieraConnector::class,
 			);
-			assert($connector instanceof Entities\VieraConnector || $connector === null);
 
 			if ($connector === null) {
 				return true;
@@ -113,7 +113,7 @@ final class StoreDevice implements Consumer
 			);
 
 			$this->logger->debug(
-				'Creating new device',
+				'Device was created',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 					'type' => 'store-device-message-consumer',
@@ -238,7 +238,7 @@ final class StoreDevice implements Consumer
 				]));
 
 				$this->logger->debug(
-					'Creating new device channel',
+					'Device channel was created',
 					[
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 						'type' => 'store-device-message-consumer',

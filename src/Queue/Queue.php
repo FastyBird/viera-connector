@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  * @since          1.0.0
  *
  * @date           21.06.23
@@ -25,7 +25,7 @@ use SplQueue;
  * Clients message consumer proxy
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */

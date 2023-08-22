@@ -52,7 +52,7 @@ final class HttpClientFactory
 	 *
 	 * @throws InvalidArgumentException
 	 */
-	public function createClient(bool $async = true): GuzzleHttp\Client|Http\Io\Transaction
+	public function create(bool $async = true): GuzzleHttp\Client|Http\Io\Transaction
 	{
 		if ($async) {
 			if ($this->asyncClient === null) {

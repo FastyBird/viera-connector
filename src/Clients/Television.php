@@ -112,7 +112,11 @@ final class Television implements Client
 	public function disconnect(): void
 	{
 		foreach ($this->devicesClients as $client) {
-			$client->disconnect();
+			try {
+				$client->disconnect();
+			} catch (Throwable) {
+				// Just ignore
+			}
 		}
 
 		if ($this->handlerTimer !== null) {
@@ -200,6 +204,31 @@ final class Television implements Client
 				]);
 
 				return false;
+			} catch (Exceptions\TelevisionApiError $ex) {
+				$this->queue->append(
+					$this->entityHelper->create(
+						Entities\Messages\StoreDeviceConnectionState::class,
+						[
+							'connector' => $device->getConnector()->getId()->toString(),
+							'device' => $device->getId()->toString(),
+							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+						],
+					),
+				);
+
+				$this->logger->error('Connection to device could not be created', [
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'local-client',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'connector' => [
+						'id' => $this->connector->getId()->toString(),
+					],
+					'device' => [
+						'id' => $device->getId()->toString(),
+					],
+				]);
+
+				return false;
 			} catch (Exceptions\InvalidState $ex) {
 				$this->queue->append(
 					$this->entityHelper->create(
@@ -212,7 +241,11 @@ final class Television implements Client
 					),
 				);
 
-				$this->getDeviceClient($device)?->disconnect();
+				try {
+					$this->getDeviceClient($device)?->disconnect();
+				} catch (Throwable) {
+					// Just ignore
+				}
 
 				$this->logger->error('Device is in invalid state and could not be handled', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
@@ -248,7 +281,11 @@ final class Television implements Client
 				),
 			);
 
-			$this->getDeviceClient($device)?->disconnect();
+			try {
+				$this->getDeviceClient($device)?->disconnect();
+			} catch (Throwable) {
+				// Just ignore
+			}
 
 			return false;
 		}
@@ -261,15 +298,15 @@ final class Television implements Client
 				continue;
 			}
 
-			if (!array_key_exists($device->getIdentifier(), $this->processedChannelsProperties)) {
-				$this->processedChannelsProperties[$device->getIdentifier()] = [];
+			if (!array_key_exists($device->getId()->toString(), $this->processedChannelsProperties)) {
+				$this->processedChannelsProperties[$device->getId()->toString()] = [];
 			}
 
 			if (array_key_exists(
-				$property->getIdentifier(),
-				$this->processedChannelsProperties[$device->getIdentifier()],
+				$property->getId()->toString(),
+				$this->processedChannelsProperties[$device->getId()->toString()],
 			)) {
-				$cmdResult = $this->processedChannelsProperties[$device->getIdentifier()][$property->getIdentifier()];
+				$cmdResult = $this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()];
 
 				if (
 					$cmdResult instanceof DateTimeInterface
@@ -281,7 +318,7 @@ final class Television implements Client
 				}
 			}
 
-			$this->processedChannelsProperties[$device->getIdentifier()][$property->getIdentifier()] = $this->dateTimeFactory->getNow();
+			$this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()] = $this->dateTimeFactory->getNow();
 
 			$result = null;
 
@@ -300,6 +337,31 @@ final class Television implements Client
 
 						break;
 				}
+			} catch (Exceptions\TelevisionApiError $ex) {
+				$this->queue->append(
+					$this->entityHelper->create(
+						Entities\Messages\StoreDeviceConnectionState::class,
+						[
+							'connector' => $device->getConnector()->getId()->toString(),
+							'device' => $device->getId()->toString(),
+							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+						],
+					),
+				);
+
+				$this->logger->error('Preparing api request failed', [
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'local-client',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'connector' => [
+						'id' => $this->connector->getId()->toString(),
+					],
+					'device' => [
+						'id' => $device->getId()->toString(),
+					],
+				]);
+
+				continue;
 			} catch (Exceptions\TelevisionApiCall $ex) {
 				$this->logger->error('Calling device api failed', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
@@ -326,7 +388,11 @@ final class Television implements Client
 					),
 				);
 
-				$this->getDeviceClient($device)?->disconnect();
+				try {
+					$this->getDeviceClient($device)?->disconnect();
+				} catch (Throwable) {
+					// Just ignore
+				}
 
 				$this->logger->error('Device is in invalid state and could not be handled', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
@@ -349,7 +415,8 @@ final class Television implements Client
 
 			$result
 				->then(function (int|bool $value) use ($device, $channel, $property): void {
-					$this->processedChannelsProperties[$device->getIdentifier()][$property->getIdentifier()] = $this->dateTimeFactory->getNow();
+					// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
+					$this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()] = $this->dateTimeFactory->getNow();
 
 					$this->queue->append(
 						$this->entityHelper->create(
@@ -365,7 +432,7 @@ final class Television implements Client
 					);
 				})
 				->otherwise(function (Throwable $ex) use ($device, $property): void {
-					$this->processedChannelsProperties[$device->getIdentifier()][$property->getIdentifier()] = false;
+					$this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()] = false;
 
 					$this->logger->warning(
 						'Could not call local api',
@@ -382,7 +449,18 @@ final class Television implements Client
 						],
 					);
 
-					if ($ex->getCode() === 500) {
+					if ($ex instanceof Exceptions\TelevisionApiError) {
+						$this->queue->append(
+							$this->entityHelper->create(
+								Entities\Messages\StoreDeviceConnectionState::class,
+								[
+									'connector' => $device->getConnector()->getId()->toString(),
+									'device' => $device->getId()->toString(),
+									'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+								],
+							),
+						);
+					} elseif ($ex->getCode() === 500) {
 						$this->queue->append(
 							$this->entityHelper->create(
 								Entities\Messages\StoreDeviceConnectionState::class,
@@ -407,7 +485,7 @@ final class Television implements Client
 	 */
 	private function createDeviceClient(Entities\VieraDevice $device): void
 	{
-		unset($this->processedChannelsProperties[$device->getIdentifier()]);
+		unset($this->processedChannelsProperties[$device->getId()->toString()]);
 
 		assert(is_string($device->getIpAddress()));
 

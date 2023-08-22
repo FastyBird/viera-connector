@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  * @since          1.0.0
  *
  * @date           10.08.23
@@ -29,12 +29,13 @@ use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\States as DevicesStates;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette;
+use Nette\Utils;
 
 /**
  * Store device connection state message consumer
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
@@ -117,7 +118,7 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 				) as $property) {
 					$this->devicePropertiesStateManager->setValue(
 						$property,
-						Nette\Utils\ArrayHash::from([
+						Utils\ArrayHash::from([
 							DevicesStates\Property::VALID_KEY => false,
 						]),
 					);
@@ -138,7 +139,7 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 					) as $property) {
 						$this->channelPropertiesStateManager->setValue(
 							$property,
-							Nette\Utils\ArrayHash::from([
+							Utils\ArrayHash::from([
 								DevicesStates\Property::VALID_KEY => false,
 							]),
 						);

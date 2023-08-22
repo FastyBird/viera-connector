@@ -96,6 +96,11 @@ class ChannelPropertyIdentifier extends Consistence\Enum\Enum
 
 	public const KEY_BACK = 'key_back';
 
+	public function getValue(): string
+	{
+		return strval(parent::getValue());
+	}
+
 	public function __toString(): string
 	{
 		return strval(self::getValue());

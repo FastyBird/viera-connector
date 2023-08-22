@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     API
+ * @subpackage     Helpers
  * @since          1.0.0
  *
  * @date           01.07.23
@@ -35,7 +35,7 @@ use function strval;
  * States values data transformers
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     API
+ * @subpackage     Helpers
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */

@@ -32,7 +32,6 @@ use IPub\DoctrineCrud;
 use Nette;
 use Nette\Utils;
 use function array_merge;
-use function strval;
 
 /**
  * Doctrine entities events
@@ -222,7 +221,7 @@ final class Properties implements Common\EventSubscriber
 	{
 		$findChannelPropertyQuery = new DevicesQueries\FindChannelProperties();
 		$findChannelPropertyQuery->forChannel($channel);
-		$findChannelPropertyQuery->byIdentifier(strval($identifier->getValue()));
+		$findChannelPropertyQuery->byIdentifier($identifier->getValue());
 
 		$property = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
 
@@ -237,7 +236,7 @@ final class Properties implements Common\EventSubscriber
 				'channel' => $channel,
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => $identifier->getValue(),
-				'name' => Helpers\Name::createName(strval($identifier->getValue())),
+				'name' => Helpers\Name::createName($identifier->getValue()),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BUTTON),
 				'unit' => null,
 				'format' => [
@@ -252,7 +251,7 @@ final class Properties implements Common\EventSubscriber
 			]));
 		} else {
 			$this->channelsPropertiesManager->update($property, Utils\ArrayHash::from([
-				'name' => Helpers\Name::createName(strval($identifier->getValue())),
+				'name' => Helpers\Name::createName($identifier->getValue()),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BUTTON),
 				'unit' => null,
 				'format' => [

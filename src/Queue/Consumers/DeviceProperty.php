@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  * @since          1.0.0
  *
  * @date           28.06.23
@@ -18,6 +18,7 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
@@ -28,13 +29,12 @@ use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette\Utils;
 use Ramsey\Uuid;
 use function array_merge;
-use function assert;
 
 /**
  * Device property consumer trait
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  *
@@ -130,14 +130,13 @@ trait DeviceProperty
 		}
 
 		if ($property === null) {
-			$findDeviceQuery = new DevicesQueries\FindDevices();
+			$findDeviceQuery = new Queries\FindDevices();
 			$findDeviceQuery->byId($deviceId);
 
 			$device = $this->devicesRepository->findOneBy(
 				$findDeviceQuery,
 				Entities\VieraDevice::class,
 			);
-			assert($device instanceof Entities\VieraDevice || $device === null);
 
 			if ($device === null) {
 				return;

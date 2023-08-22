@@ -188,6 +188,11 @@ class ActionKey extends Consistence\Enum\Enum
 
 	public const AD_CHANGE = 'NRC_AD_CHANGE-ONOFF';
 
+	public function getValue(): string
+	{
+		return strval(parent::getValue());
+	}
+
 	public function __toString(): string
 	{
 		return strval(self::getValue());

@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * Crypto.php
+ * ConnectionManager.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -19,6 +19,7 @@ use FastyBird\Connector\Viera\Entities;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use Nette;
+use Throwable;
 use function array_key_exists;
 use function assert;
 use function is_string;
@@ -73,7 +74,11 @@ final class ConnectionManager
 	public function __destruct()
 	{
 		foreach ($this->connections as $key => $client) {
-			$client->disconnect();
+			try {
+				$client->disconnect();
+			} catch (Throwable) {
+				// Just ignore
+			}
 
 			unset($this->connections[$key]);
 		}

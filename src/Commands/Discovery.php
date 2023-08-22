@@ -439,7 +439,7 @@ class Discovery extends Console\Command\Command
 						$device->getPort(),
 					);
 					$televisionApi->connect();
-				} catch (Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 					$io->error(
 						$this->translator->translate(
 							'//viera-connector.cmd.discovery.messages.device.connectionFailed',
@@ -505,6 +505,24 @@ class Discovery extends Console\Command\Command
 					$this->challengeKey = $televisionApi
 						->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
 						->getChallengeKey();
+				} catch (Exceptions\TelevisionApiError $ex) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.discovery.messages.pairing.failed',
+							['device' => $device->getName()],
+						),
+					);
+
+					$this->logger->error(
+						'Preparing api request failed',
+						[
+							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'type' => 'discovery-cmd',
+							'exception' => BootstrapHelpers\Logger::buildException($ex),
+						],
+					);
+
+					continue;
 				} catch (Exceptions\TelevisionApiCall $ex) {
 					$io->error(
 						$this->translator->translate(

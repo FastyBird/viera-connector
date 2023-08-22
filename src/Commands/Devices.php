@@ -172,7 +172,7 @@ class Devices extends Console\Command\Command
 				Entities\VieraDevice::DEFAULT_PORT,
 			);
 			$televisionApi->connect();
-		} catch (Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+		} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 			);
@@ -191,7 +191,7 @@ class Devices extends Console\Command\Command
 
 		try {
 			$isOnline = $televisionApi->livenessProbe(1.5, true);
-		} catch (Exceptions\InvalidState $ex) {
+		} catch (Exceptions\InvalidState | InvalidArgumentExceptionAlias $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 			);
@@ -221,6 +221,21 @@ class Devices extends Console\Command\Command
 
 		try {
 			$specs = $televisionApi->getSpecs(false);
+		} catch (Exceptions\TelevisionApiError $ex) {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
+			);
+
+			$this->logger->error(
+				'Loading TV specification failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'devices-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
 		} catch (Exceptions\TelevisionApiCall $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
@@ -287,7 +302,7 @@ class Devices extends Console\Command\Command
 					$authorization->getEncryptionKey(),
 				);
 				$televisionApi->connect();
-			} catch (Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+			} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 				$io->error(
 					$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 				);
@@ -801,7 +816,7 @@ class Devices extends Console\Command\Command
 				$device->getEncryptionKey(),
 			);
 			$televisionApi->connect();
-		} catch (Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+		} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 			);
@@ -820,7 +835,7 @@ class Devices extends Console\Command\Command
 
 		try {
 			$isOnline = $televisionApi->livenessProbe(1.5, true);
-		} catch (Exceptions\InvalidState $ex) {
+		} catch (Exceptions\InvalidState | InvalidArgumentExceptionAlias $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 			);
@@ -850,6 +865,21 @@ class Devices extends Console\Command\Command
 
 		try {
 			$specs = $televisionApi->getSpecs(false);
+		} catch (Exceptions\TelevisionApiError $ex) {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
+			);
+
+			$this->logger->error(
+				'Loading TV specification failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'devices-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
 		} catch (Exceptions\TelevisionApiCall $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
@@ -914,7 +944,7 @@ class Devices extends Console\Command\Command
 					$authorization->getEncryptionKey(),
 				);
 				$televisionApi->connect();
-			} catch (Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+			} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 				$io->error(
 					$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 				);

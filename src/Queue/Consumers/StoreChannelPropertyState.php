@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  * @since          1.0.0
  *
  * @date           01.07.23
@@ -17,7 +17,8 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
-use FastyBird\Connector\Viera\Queue\Consumer;
+use FastyBird\Connector\Viera\Queries;
+use FastyBird\Connector\Viera\Queue;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
@@ -33,11 +34,11 @@ use Nette\Utils;
  * Store channel property state message consumer
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class StoreChannelPropertyState implements Consumer
+final class StoreChannelPropertyState implements Queue\Consumer
 {
 
 	use Nette\SmartObject;
@@ -63,7 +64,7 @@ final class StoreChannelPropertyState implements Consumer
 			return false;
 		}
 
-		$findDeviceQuery = new DevicesQueries\FindDevices();
+		$findDeviceQuery = new Queries\FindDevices();
 		$findDeviceQuery->byConnectorId($entity->getConnector());
 		$findDeviceQuery->byId($entity->getDevice());
 

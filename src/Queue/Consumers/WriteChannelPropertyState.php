@@ -7,7 +7,7 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  * @since          1.0.0
  *
  * @date           18.07.23
@@ -46,7 +46,7 @@ use function strval;
  * Write state to device message consumer
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Consumers
+ * @subpackage     Queue
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
@@ -400,6 +400,41 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			);
 
 			return true;
+		} catch (Exceptions\TelevisionApiError $ex) {
+			$this->queue->append(
+				$this->entityHelper->create(
+					Entities\Messages\StoreDeviceConnectionState::class,
+					[
+						'connector' => $connector->getId()->toString(),
+						'device' => $device->getId()->toString(),
+						'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+					],
+				),
+			);
+
+			$this->logger->error(
+				'Preparing api request failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'write-channel-property-state-message-consumer',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'connector' => [
+						'id' => $connector->getId()->toString(),
+					],
+					'device' => [
+						'id' => $device->getId()->toString(),
+					],
+					'channel' => [
+						'id' => $channel->getId()->toString(),
+					],
+					'property' => [
+						'id' => $property->getId()->toString(),
+					],
+					'data' => $entity->toArray(),
+				],
+			);
+
+			return true;
 		} catch (Exceptions\TelevisionApiCall $ex) {
 			$this->queue->append(
 				$this->entityHelper->create(
@@ -588,7 +623,18 @@ final class WriteChannelPropertyState implements Queue\Consumer
 					]),
 				);
 
-				if ($ex->getCode() === 500) {
+				if ($ex instanceof Exceptions\TelevisionApiError) {
+					$this->queue->append(
+						$this->entityHelper->create(
+							Entities\Messages\StoreDeviceConnectionState::class,
+							[
+								'connector' => $device->getConnector()->getId()->toString(),
+								'device' => $device->getId()->toString(),
+								'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+							],
+						),
+					);
+				} elseif ($ex->getCode() === 500) {
 					$this->queue->append(
 						$this->entityHelper->create(
 							Entities\Messages\StoreDeviceConnectionState::class,

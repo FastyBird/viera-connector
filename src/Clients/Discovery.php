@@ -15,7 +15,6 @@
 
 namespace FastyBird\Connector\Viera\Clients;
 
-use Clue\React\Multicast;
 use Evenement;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
@@ -80,7 +79,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 		private readonly Queue\Queue $queue,
 		private readonly Helpers\Entity $entityHelper,
 		private readonly Viera\Logger $logger,
-		private readonly Multicast\Factory $serverFactory,
+		private readonly MulticastFactory $multicastFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
 	)
 	{
@@ -100,7 +99,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 		);
 
 		try {
-			$this->sender = $this->serverFactory->createSender();
+			$this->sender = $this->multicastFactory->create();
 
 		} catch (Throwable $ex) {
 			$this->logger->error(
@@ -250,6 +249,17 @@ final class Discovery implements Evenement\EventEmitterInterface
 					$apps = $televisionApi->getApps(false);
 				}
 			}
+		} catch (Exceptions\TelevisionApiError $ex) {
+			$this->logger->error(
+				'Preparing api request failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'discovery-client',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
 		} catch (Exceptions\TelevisionApiCall $ex) {
 			$this->logger->error(
 				'Calling device api failed',
