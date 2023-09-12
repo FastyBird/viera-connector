@@ -7,13 +7,13 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     API
+ * @subpackage     Services
  * @since          1.0.0
  *
  * @date           01.07.23
  */
 
-namespace FastyBird\Connector\Viera\API;
+namespace FastyBird\Connector\Viera\Services;
 
 use GuzzleHttp;
 use InvalidArgumentException;
@@ -26,7 +26,7 @@ use React\Socket\Connector;
  * HTTP client factory
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     API
+ * @subpackage     Services
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */

@@ -11,6 +11,7 @@ use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Hydrators;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Schemas;
+use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Subscribers;
 use FastyBird\Connector\Viera\Tests;
 use FastyBird\Connector\Viera\Writers;
@@ -34,7 +35,10 @@ final class VieraExtensionTest extends Tests\Cases\Unit\BaseTestCase
 		self::assertNotNull($container->getByType(Clients\TelevisionFactory::class, false));
 		self::assertNotNull($container->getByType(Clients\DiscoveryFactory::class, false));
 
-		self::assertNotNull($container->getByType(API\HttpClientFactory::class, false));
+		self::assertNotNull($container->getByType(Services\HttpClientFactory::class, false));
+		self::assertNotNull($container->getByType(Services\MulticastFactory::class, false));
+		self::assertNotNull($container->getByType(Services\SocketClientFactory::class, false));
+
 		self::assertNotNull($container->getByType(API\ConnectionManager::class, false));
 		self::assertNotNull($container->getByType(API\TelevisionApiFactory::class, false));
 

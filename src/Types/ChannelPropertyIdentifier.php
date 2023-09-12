@@ -29,9 +29,6 @@ use function strval;
 class ChannelPropertyIdentifier extends Consistence\Enum\Enum
 {
 
-	/**
-	 * Define device states
-	 */
 	public const STATE = 'state';
 
 	public const VOLUME = 'volume';
@@ -103,7 +100,7 @@ class ChannelPropertyIdentifier extends Consistence\Enum\Enum
 
 	public function __toString(): string
 	{
-		return strval(self::getValue());
+		return self::getValue();
 	}
 
 }

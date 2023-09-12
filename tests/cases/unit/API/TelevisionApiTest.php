@@ -5,6 +5,7 @@ namespace FastyBird\Connector\Viera\Tests\Cases\Unit\API;
 use Error;
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Exceptions;
+use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Tests;
 use FastyBird\Library\Bootstrap\Exceptions as BootstrapExceptions;
 use Fig\Http\Message\RequestMethodInterface;
@@ -62,7 +63,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -74,7 +75,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -160,7 +161,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -172,7 +173,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -325,7 +326,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -337,7 +338,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -419,7 +420,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -431,7 +432,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -513,7 +514,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -525,7 +526,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -607,7 +608,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -619,7 +620,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -701,7 +702,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -713,7 +714,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -795,7 +796,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -807,7 +808,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 
@@ -889,7 +890,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 				},
 			);
 
-		$httpClientFactory = $this->createMock(API\HttpClientFactory::class);
+		$httpClientFactory = $this->createMock(Services\HttpClientFactory::class);
 		$httpClientFactory
 			->method('create')
 			->willReturnCallback(
@@ -901,7 +902,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			);
 
 		$this->mockContainerService(
-			API\HttpClientFactory::class,
+			Services\HttpClientFactory::class,
 			$httpClientFactory,
 		);
 

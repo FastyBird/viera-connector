@@ -30,9 +30,6 @@ use function strval;
 class DevicePropertyIdentifier extends Consistence\Enum\Enum
 {
 
-	/**
-	 * Define device states
-	 */
 	public const IP_ADDRESS = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_IP_ADDRESS;
 
 	public const STATE = MetadataTypes\DevicePropertyIdentifier::IDENTIFIER_STATE;
@@ -62,7 +59,7 @@ class DevicePropertyIdentifier extends Consistence\Enum\Enum
 
 	public function __toString(): string
 	{
-		return strval(self::getValue());
+		return self::getValue();
 	}
 
 }

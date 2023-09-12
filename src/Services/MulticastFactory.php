@@ -7,13 +7,13 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Clients
+ * @subpackage     Services
  * @since          1.0.0
  *
  * @date           14.08.23
  */
 
-namespace FastyBird\Connector\Viera\Clients;
+namespace FastyBird\Connector\Viera\Services;
 
 use Clue\React\Multicast;
 use Nette;
@@ -25,7 +25,7 @@ use RuntimeException;
  * React multicast server factory
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     Clients
+ * @subpackage     Services
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */

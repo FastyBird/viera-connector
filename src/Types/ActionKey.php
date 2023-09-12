@@ -29,9 +29,6 @@ use function strval;
 class ActionKey extends Consistence\Enum\Enum
 {
 
-	/**
-	 * Define action keys
-	 */
 	public const THIRTY_SECOND_SKIP = 'NRC_30S_SKIP-ONOFF';
 
 	public const TOGGLE_3D = 'NRC_3D-ONOFF';
@@ -195,7 +192,7 @@ class ActionKey extends Consistence\Enum\Enum
 
 	public function __toString(): string
 	{
-		return strval(self::getValue());
+		return self::getValue();
 	}
 
 }

@@ -29,9 +29,6 @@ use function strval;
 class ChannelType extends Consistence\Enum\Enum
 {
 
-	/**
-	 * Define device states
-	 */
 	public const TELEVISION = 'television';
 
 	public function getValue(): string
@@ -41,7 +38,7 @@ class ChannelType extends Consistence\Enum\Enum
 
 	public function __toString(): string
 	{
-		return strval(self::getValue());
+		return self::getValue();
 	}
 
 }

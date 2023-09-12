@@ -30,9 +30,6 @@ use function strval;
 class ConnectorControlName extends Consistence\Enum\Enum
 {
 
-	/**
-	 * Define device states
-	 */
 	public const REBOOT = MetadataTypes\ControlName::NAME_REBOOT;
 
 	public const DISCOVER = MetadataTypes\ControlName::NAME_DISCOVER;
@@ -44,7 +41,7 @@ class ConnectorControlName extends Consistence\Enum\Enum
 
 	public function __toString(): string
 	{
-		return strval(self::getValue());
+		return self::getValue();
 	}
 
 }

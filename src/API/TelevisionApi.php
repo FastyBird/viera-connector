@@ -20,6 +20,7 @@ use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
@@ -122,8 +123,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		private readonly string|null $appId,
 		private readonly string|null $encryptionKey,
 		private readonly string|null $macAddress,
-		private readonly HttpClientFactory $httpClientFactory,
-		private readonly SocketClientFactory $socketClientFactory,
+		private readonly Services\HttpClientFactory $httpClientFactory,
+		private readonly Services\SocketClientFactory $socketClientFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
 		private readonly Helpers\Entity $entityHelper,
 		private readonly Viera\Logger $logger,

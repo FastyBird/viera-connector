@@ -26,6 +26,7 @@ use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Hydrators;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Schemas;
+use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Subscribers;
 use FastyBird\Connector\Viera\Writers;
 use FastyBird\Library\Bootstrap\Boot as BootstrapBoot;
@@ -110,15 +111,27 @@ class VieraExtension extends DI\CompilerExtension
 		}
 
 		/**
-		 * CLIENTS
+		 * SERVICES & FACTORIES
 		 */
 
-		$multicastFactory = $builder->addDefinition(
-			$this->prefix('clients.multicastFactory'),
+		$builder->addDefinition(
+			$this->prefix('services.multicastFactory'),
 			new DI\Definitions\ServiceDefinition(),
 		)
-			->setType(Clients\MulticastFactory::class)
-			->setAutowired(false);
+			->setType(Services\MulticastFactory::class);
+
+		$builder->addDefinition($this->prefix('services.httpClientFactory'), new DI\Definitions\ServiceDefinition())
+			->setType(Services\HttpClientFactory::class);
+
+		$builder->addDefinition(
+			$this->prefix('services.socketClientFactory'),
+			new DI\Definitions\ServiceDefinition(),
+		)
+			->setType(Services\SocketClientFactory::class);
+
+		/**
+		 * CLIENTS
+		 */
 
 		$builder->addFactoryDefinition($this->prefix('clients.television'))
 			->setImplement(Clients\TelevisionFactory::class)
@@ -133,7 +146,6 @@ class VieraExtension extends DI\CompilerExtension
 			->getResultDefinition()
 			->setType(Clients\Discovery::class)
 			->setArguments([
-				'multicastFactory' => $multicastFactory,
 				'logger' => $logger,
 			]);
 
@@ -141,25 +153,14 @@ class VieraExtension extends DI\CompilerExtension
 		 * API
 		 */
 
-		$builder->addDefinition($this->prefix('api.httpClientFactory'), new DI\Definitions\ServiceDefinition())
-			->setType(API\HttpClientFactory::class);
-
 		$builder->addDefinition($this->prefix('api.connectionsManager'), new DI\Definitions\ServiceDefinition())
 			->setType(API\ConnectionManager::class);
-
-		$socketClientFactory = $builder->addDefinition(
-			$this->prefix('api.socketClientFactory'),
-			new DI\Definitions\ServiceDefinition(),
-		)
-			->setType(API\SocketClientFactory::class)
-			->setAutowired(false);
 
 		$builder->addFactoryDefinition($this->prefix('api.televisionApi'))
 			->setImplement(API\TelevisionApiFactory::class)
 			->getResultDefinition()
 			->setType(API\TelevisionApi::class)
 			->setArguments([
-				'socketClientFactory' => $socketClientFactory,
 				'logger' => $logger,
 			]);
 
@@ -186,7 +187,7 @@ class VieraExtension extends DI\CompilerExtension
 			]);
 
 		$builder->addDefinition(
-			$this->prefix('consumers.messages.store.channelPropertyState'),
+			$this->prefix('queue.consumers.store.channelPropertyState'),
 			new DI\Definitions\ServiceDefinition(),
 		)
 			->setType(Queue\Consumers\StoreChannelPropertyState::class)

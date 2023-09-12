@@ -7,13 +7,13 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     API
+ * @subpackage     Services
  * @since          1.0.0
  *
  * @date           01.07.23
  */
 
-namespace FastyBird\Connector\Viera\API;
+namespace FastyBird\Connector\Viera\Services;
 
 use InvalidArgumentException;
 use Nette;
@@ -24,7 +24,7 @@ use React\Socket;
  * Socket client factory
  *
  * @package        FastyBird:VieraConnector!
- * @subpackage     API
+ * @subpackage     Services
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */

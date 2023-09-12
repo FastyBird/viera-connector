@@ -22,6 +22,7 @@ use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
+use FastyBird\Connector\Viera\Services;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Nette;
@@ -79,7 +80,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 		private readonly Queue\Queue $queue,
 		private readonly Helpers\Entity $entityHelper,
 		private readonly Viera\Logger $logger,
-		private readonly MulticastFactory $multicastFactory,
+		private readonly Services\MulticastFactory $multicastFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
 	)
 	{
