@@ -149,7 +149,7 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 		}
 
 		$this->logger->debug(
-			'Consumed device online status message',
+			'Consumed device connection status message',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'store-device-connection-state-message-consumer',

@@ -1384,7 +1384,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 						'type' => 'television-api',
 						'exception' => BootstrapHelpers\Logger::buildException($ex),
-						'connector' => [
+						'device' => [
 							'identifier' => $this->identifier,
 						],
 					]);
@@ -1407,7 +1407,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'television-api',
 				'exception' => BootstrapHelpers\Logger::buildException($ex),
-				'connector' => [
+				'device' => [
 					'identifier' => $this->identifier,
 				],
 			]);
@@ -1421,7 +1421,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			$this->logger->error('Could not get connector local address', [
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'television-api',
-				'connector' => [
+				'device' => [
 					'identifier' => $this->identifier,
 				],
 			]);
@@ -1479,7 +1479,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'television-api',
 				'exception' => BootstrapHelpers\Logger::buildException($ex),
-				'connector' => [
+				'device' => [
 					'identifier' => $this->identifier,
 				],
 			]);
@@ -2029,7 +2029,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				'headers' => $request->getHeaders(),
 				'body' => $request->getContent(),
 			],
-			'connector' => [
+			'device' => [
 				'identifier' => $this->identifier,
 			],
 		]);
@@ -2072,7 +2072,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 									'code' => $response->getStatusCode(),
 									'body' => $responseBody,
 								],
-								'connector' => [
+								'device' => [
 									'identifier' => $this->identifier,
 								],
 							]);
@@ -2130,7 +2130,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 					'code' => $response->getStatusCode(),
 					'body' => $responseBody,
 				],
-				'connector' => [
+				'device' => [
 					'identifier' => $this->identifier,
 				],
 			]);
@@ -2172,7 +2172,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				'headers' => $request->getHeaders(),
 				'body' => $request->getContent(),
 			],
-			'connector' => [
+			'device' => [
 				'identifier' => $this->identifier,
 			],
 		]);
@@ -2215,7 +2215,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 									'code' => $response->getStatusCode(),
 									'body' => $responseBody,
 								],
-								'connector' => [
+								'device' => [
 									'identifier' => $this->identifier,
 								],
 							]);
@@ -2273,7 +2273,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 					'code' => $response->getStatusCode(),
 					'body' => $responseBody,
 				],
-				'connector' => [
+				'device' => [
 					'identifier' => $this->identifier,
 				],
 			]);
