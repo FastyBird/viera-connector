@@ -193,7 +193,7 @@ final class Television implements Client
 			} catch (Exceptions\TelevisionApiCall $ex) {
 				$this->logger->error('Calling device api failed', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'local-client',
+					'type' => 'television-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'connector' => [
 						'id' => $this->connector->getId()->toString(),
@@ -218,7 +218,7 @@ final class Television implements Client
 
 				$this->logger->error('Connection to device could not be created', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'local-client',
+					'type' => 'television-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'connector' => [
 						'id' => $this->connector->getId()->toString(),
@@ -249,7 +249,7 @@ final class Television implements Client
 
 				$this->logger->error('Device is in invalid state and could not be handled', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'local-client',
+					'type' => 'television-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'connector' => [
 						'id' => $this->connector->getId()->toString(),
@@ -351,7 +351,7 @@ final class Television implements Client
 
 				$this->logger->error('Preparing api request failed', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'local-client',
+					'type' => 'television-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'connector' => [
 						'id' => $this->connector->getId()->toString(),
@@ -365,7 +365,7 @@ final class Television implements Client
 			} catch (Exceptions\TelevisionApiCall $ex) {
 				$this->logger->error('Calling device api failed', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'local-client',
+					'type' => 'television-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'connector' => [
 						'id' => $this->connector->getId()->toString(),
@@ -396,7 +396,7 @@ final class Television implements Client
 
 				$this->logger->error('Device is in invalid state and could not be handled', [
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'local-client',
+					'type' => 'television-client',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'connector' => [
 						'id' => $this->connector->getId()->toString(),
@@ -438,7 +438,7 @@ final class Television implements Client
 						'Could not call local api',
 						[
 							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-							'type' => 'local-client',
+							'type' => 'television-client',
 							'exception' => BootstrapHelpers\Logger::buildException($ex),
 							'connector' => [
 								'id' => $this->connector->getId()->toString(),
@@ -518,7 +518,7 @@ final class Television implements Client
 					'Event subscription with device failed',
 					[
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'local-client',
+						'type' => 'television-client',
 						'exception' => BootstrapHelpers\Logger::buildException($ex),
 						'connector' => [
 							'id' => $this->connector->getId()->toString(),
