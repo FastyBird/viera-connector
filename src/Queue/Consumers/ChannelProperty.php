@@ -143,15 +143,16 @@ trait ChannelProperty
 							'identifier' => $identifier,
 							'name' => $name,
 							'dataType' => $dataType,
-							'settable' => $settable,
-							'queryable' => $queryable,
 							'format' => $format,
 						],
 						$type === DevicesEntities\Channels\Properties\Variable::class
 							? [
 								'value' => $value,
 							]
-							: [],
+							: [
+								'settable' => $settable,
+								'queryable' => $queryable,
+							],
 					)),
 				),
 			);
@@ -178,15 +179,16 @@ trait ChannelProperty
 					Utils\ArrayHash::from(array_merge(
 						[
 							'dataType' => $dataType,
-							'settable' => $settable,
-							'queryable' => $queryable,
 							'format' => $format,
 						],
 						$type === DevicesEntities\Channels\Properties\Variable::class
 							? [
 								'value' => $value,
 							]
-							: [],
+							: [
+								'settable' => $settable,
+								'queryable' => $queryable,
+							],
 					)),
 				),
 			);

@@ -17,7 +17,6 @@ namespace FastyBird\Connector\Viera\API;
 
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
-use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use Nette;
 use Throwable;
 use function array_key_exists;
@@ -47,7 +46,6 @@ final class ConnectionManager
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */

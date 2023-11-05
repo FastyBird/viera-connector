@@ -558,8 +558,6 @@ class Discovery extends Console\Command\Command
 						'identifier' => Types\DevicePropertyIdentifier::APP_ID,
 						'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-						'settable' => false,
-						'queryable' => false,
 						'value' => $authorization->getAppId(),
 						'format' => null,
 					]));
@@ -584,8 +582,6 @@ class Discovery extends Console\Command\Command
 							Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
 						),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
-						'settable' => false,
-						'queryable' => false,
 						'value' => $authorization->getEncryptionKey(),
 						'format' => null,
 					]));

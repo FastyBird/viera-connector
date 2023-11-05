@@ -479,7 +479,6 @@ final class Television implements Client
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */

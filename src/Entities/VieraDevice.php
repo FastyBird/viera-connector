@@ -20,7 +20,6 @@ use FastyBird\Connector\Viera\Types;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
-use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use function floatval;
 use function is_bool;
 use function is_int;
@@ -55,7 +54,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -79,7 +77,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -103,7 +100,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -131,7 +127,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -155,7 +150,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -179,7 +173,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -203,7 +196,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -227,7 +219,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -251,7 +242,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
@@ -275,7 +265,6 @@ class VieraDevice extends DevicesEntities\Devices\Device
 	}
 
 	/**
-	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */

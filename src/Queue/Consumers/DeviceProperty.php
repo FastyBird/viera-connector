@@ -65,8 +65,6 @@ trait DeviceProperty
 		string $identifier,
 		string|null $name = null,
 		array|string|null $format = null,
-		bool $settable = false,
-		bool $queryable = false,
 	): void
 	{
 		$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
@@ -151,8 +149,6 @@ trait DeviceProperty
 							'identifier' => $identifier,
 							'name' => $name,
 							'dataType' => $dataType,
-							'settable' => $settable,
-							'queryable' => $queryable,
 							'format' => $format,
 						],
 						$type === DevicesEntities\Devices\Properties\Variable::class
@@ -183,19 +179,11 @@ trait DeviceProperty
 			$property = $this->databaseHelper->transaction(
 				fn (): DevicesEntities\Devices\Properties\Property => $this->devicesPropertiesManager->update(
 					$property,
-					Utils\ArrayHash::from(array_merge(
-						[
-							'dataType' => $dataType,
-							'settable' => $settable,
-							'queryable' => $queryable,
-							'format' => $format,
-						],
-						$type === DevicesEntities\Devices\Properties\Variable::class
-							? [
-								'value' => $value,
-							]
-							: [],
-					)),
+					Utils\ArrayHash::from([
+						'dataType' => $dataType,
+						'format' => $format,
+						'value' => $value,
+					]),
 				),
 			);
 
