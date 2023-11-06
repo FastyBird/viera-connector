@@ -143,7 +143,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 		// Searching timeout
 		$this->handlerTimer = $this->eventLoop->addTimer(
 			self::SEARCH_TIMEOUT,
-			function (): void {
+			async(function (): void {
 				$this->sender?->close();
 
 				$this->discoveredLocalDevices->rewind();
@@ -161,7 +161,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 				}
 
 				$this->emit('finished', [$devices]);
-			},
+			}),
 		);
 
 		$data = "M-SEARCH * HTTP/1.1\r\n";
