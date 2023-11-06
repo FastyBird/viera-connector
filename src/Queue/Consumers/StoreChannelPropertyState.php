@@ -45,9 +45,9 @@ final class StoreChannelPropertyState implements Queue\Consumer
 
 	public function __construct(
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
-		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
+		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
+		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
+		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStateManager,
 	)
 	{
@@ -169,7 +169,11 @@ final class StoreChannelPropertyState implements Queue\Consumer
 			]));
 		} else {
 			$this->channelPropertiesStateManager->setValue($property, Utils\ArrayHash::from([
-				DevicesStates\Property::ACTUAL_VALUE_KEY => $entity->getValue(),
+				DevicesStates\Property::ACTUAL_VALUE_KEY => DevicesUtilities\ValueHelper::transformValueFromDevice(
+					$property->getDataType(),
+					$property->getFormat(),
+					$entity->getValue(),
+				),
 				DevicesStates\Property::VALID_KEY => true,
 			]));
 		}

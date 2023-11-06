@@ -19,7 +19,6 @@ use Doctrine\Common;
 use Doctrine\ORM;
 use Doctrine\Persistence;
 use FastyBird\Connector\Viera\Entities;
-use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
@@ -28,6 +27,7 @@ use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use IPub\DoctrineCrud;
 use Nette;
 use Nette\Utils;
@@ -47,10 +47,10 @@ final class Properties implements Common\EventSubscriber
 	use Nette\SmartObject;
 
 	public function __construct(
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager,
-		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		private readonly DevicesModels\Channels\Properties\PropertiesManager $channelsPropertiesManager,
+		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		private readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
+		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
+		private readonly DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
 	)
 	{
 	}
@@ -149,7 +149,7 @@ final class Properties implements Common\EventSubscriber
 				'device' => $device,
 				'entity' => DevicesEntities\Devices\Properties\Dynamic::class,
 				'identifier' => Types\DevicePropertyIdentifier::STATE,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::STATE),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::STATE),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 				'unit' => null,
 				'format' => [
@@ -236,7 +236,7 @@ final class Properties implements Common\EventSubscriber
 				'channel' => $channel,
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => $identifier->getValue(),
-				'name' => Helpers\Name::createName($identifier->getValue()),
+				'name' => DevicesUtilities\Name::createName($identifier->getValue()),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BUTTON),
 				'unit' => null,
 				'format' => [
@@ -251,7 +251,7 @@ final class Properties implements Common\EventSubscriber
 			]));
 		} else {
 			$this->channelsPropertiesManager->update($property, Utils\ArrayHash::from([
-				'name' => Helpers\Name::createName($identifier->getValue()),
+				'name' => DevicesUtilities\Name::createName($identifier->getValue()),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BUTTON),
 				'unit' => null,
 				'format' => [
@@ -316,7 +316,7 @@ final class Properties implements Common\EventSubscriber
 						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 						'channel' => $channel,
 						'identifier' => Types\ChannelPropertyIdentifier::INPUT_SOURCE,
-						'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
+						'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 						'settable' => true,
 						'queryable' => false,

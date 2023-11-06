@@ -230,7 +230,9 @@ final class DiscoveryTest extends Tests\Cases\Unit\DbTestCase
 
 		$this->mockContainerService(Services\SocketClientFactory::class, $socketClientFactory);
 
-		$connectorsRepository = $this->getContainer()->getByType(DevicesModels\Connectors\ConnectorsRepository::class);
+		$connectorsRepository = $this->getContainer()->getByType(
+			DevicesModels\Entities\Connectors\ConnectorsRepository::class,
+		);
 
 		$findConnectorQuery = new Queries\FindConnectors();
 		$findConnectorQuery->byIdentifier('viera');
@@ -264,7 +266,7 @@ final class DiscoveryTest extends Tests\Cases\Unit\DbTestCase
 
 		$consumers->consume();
 
-		$devicesRepository = $this->getContainer()->getByType(DevicesModels\Devices\DevicesRepository::class);
+		$devicesRepository = $this->getContainer()->getByType(DevicesModels\Entities\Devices\DevicesRepository::class);
 
 		$findDeviceQuery = new Queries\FindDevices();
 		$findDeviceQuery->forConnector($connector);

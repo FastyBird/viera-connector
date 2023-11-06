@@ -33,6 +33,7 @@ use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use InvalidArgumentException as InvalidArgumentExceptionAlias;
 use Nette\Localization;
 use Nette\Utils;
@@ -79,15 +80,15 @@ class Devices extends Console\Command\Command
 	public function __construct(
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
-		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Devices\DevicesManager $devicesManager,
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager,
-		private readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
-		private readonly DevicesModels\Channels\ChannelsManager $channelsManager,
-		private readonly DevicesModels\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		private readonly DevicesModels\Channels\Properties\PropertiesManager $channelsPropertiesManager,
+		private readonly DevicesModels\Entities\Connectors\ConnectorsRepository $connectorsRepository,
+		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
+		private readonly DevicesModels\Entities\Devices\DevicesManager $devicesManager,
+		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		private readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
+		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
+		private readonly DevicesModels\Entities\Channels\ChannelsManager $channelsManager,
+		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
+		private readonly DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
 		private readonly Persistence\ManagerRegistry $managerRegistry,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly Localization\Translator $translator,
@@ -392,7 +393,7 @@ class Devices extends Console\Command\Command
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
 				'identifier' => Types\DevicePropertyIdentifier::IP_ADDRESS,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 				'value' => $ipAddress,
 				'device' => $device,
@@ -401,7 +402,7 @@ class Devices extends Console\Command\Command
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
 				'identifier' => Types\DevicePropertyIdentifier::PORT,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::PORT),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UINT),
 				'value' => Entities\VieraDevice::DEFAULT_PORT,
 				'device' => $device,
@@ -410,7 +411,7 @@ class Devices extends Console\Command\Command
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
 				'identifier' => Types\DevicePropertyIdentifier::MODEL,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::MODEL),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 				'value' => trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
 				'device' => $device,
@@ -419,7 +420,7 @@ class Devices extends Console\Command\Command
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
 				'identifier' => Types\DevicePropertyIdentifier::MANUFACTURER,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::MANUFACTURER),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MANUFACTURER),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 				'value' => $specs->getManufacturer(),
 				'device' => $device,
@@ -428,7 +429,7 @@ class Devices extends Console\Command\Command
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
 				'identifier' => Types\DevicePropertyIdentifier::SERIAL_NUMBER,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::SERIAL_NUMBER),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::SERIAL_NUMBER),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 				'value' => $specs->getSerialNumber(),
 				'device' => $device,
@@ -438,7 +439,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::MAC_ADDRESS,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $macAddress,
 					'device' => $device,
@@ -448,7 +449,7 @@ class Devices extends Console\Command\Command
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
 				'identifier' => Types\DevicePropertyIdentifier::ENCRYPTED,
-				'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTED),
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTED),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
 				'value' => $specs->isRequiresEncryption(),
 				'device' => $device,
@@ -458,7 +459,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::APP_ID,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $authorization->getAppId(),
 					'device' => $device,
@@ -467,7 +468,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $authorization->getEncryptionKey(),
 					'device' => $device,
@@ -483,7 +484,7 @@ class Devices extends Console\Command\Command
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => Types\ChannelPropertyIdentifier::STATE,
-				'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::STATE),
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::STATE),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
 				'settable' => true,
 				'queryable' => true,
@@ -494,7 +495,7 @@ class Devices extends Console\Command\Command
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => Types\ChannelPropertyIdentifier::VOLUME,
-				'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::VOLUME),
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::VOLUME),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UCHAR),
 				'settable' => true,
 				'queryable' => true,
@@ -508,7 +509,7 @@ class Devices extends Console\Command\Command
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => Types\ChannelPropertyIdentifier::MUTE,
-				'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::MUTE),
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::MUTE),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
 				'settable' => true,
 				'queryable' => true,
@@ -519,7 +520,7 @@ class Devices extends Console\Command\Command
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => Types\ChannelPropertyIdentifier::HDMI,
-				'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 				'settable' => true,
 				'queryable' => false,
@@ -530,7 +531,7 @@ class Devices extends Console\Command\Command
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => Types\ChannelPropertyIdentifier::APPLICATION,
-				'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 				'settable' => true,
 				'queryable' => false,
@@ -548,7 +549,7 @@ class Devices extends Console\Command\Command
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 				'identifier' => Types\ChannelPropertyIdentifier::INPUT_SOURCE,
-				'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
 				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 				'settable' => true,
 				'queryable' => false,
@@ -977,7 +978,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::IP_ADDRESS,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $ipAddress,
 					'device' => $device,
@@ -992,7 +993,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::PORT,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::PORT),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UINT),
 					'value' => $port,
 					'device' => $device,
@@ -1007,7 +1008,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::APP_ID,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $authorization->getAppId(),
 					'device' => $device,
@@ -1024,7 +1025,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $authorization->getEncryptionKey(),
 					'device' => $device,
@@ -1041,7 +1042,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::MODEL,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::MODEL),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
 					'device' => $device,
@@ -1056,7 +1057,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::MODEL,
-					'name' => Helpers\Name::createName(
+					'name' => DevicesUtilities\Name::createName(
 						Types\DevicePropertyIdentifier::MANUFACTURER,
 					),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
@@ -1073,7 +1074,7 @@ class Devices extends Console\Command\Command
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::MAC_ADDRESS,
-					'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
 					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 					'value' => $macAddress,
 					'device' => $device,
@@ -1096,7 +1097,7 @@ class Devices extends Console\Command\Command
 					$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 						'identifier' => Types\ChannelPropertyIdentifier::HDMI,
-						'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
+						'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 						'settable' => true,
 						'queryable' => false,
@@ -1123,7 +1124,7 @@ class Devices extends Console\Command\Command
 					$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
 						'identifier' => Types\ChannelPropertyIdentifier::APPLICATION,
-						'name' => Helpers\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
+						'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
 						'settable' => true,
 						'queryable' => false,

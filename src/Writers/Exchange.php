@@ -47,7 +47,7 @@ class Exchange implements Writer, ExchangeConsumers\Consumer
 		private readonly Entities\VieraConnector $connector,
 		private readonly Helpers\Entity $entityHelper,
 		private readonly Queue\Queue $queue,
-		private readonly DevicesModels\Channels\ChannelsRepository $channelsRepository,
+		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
 		private readonly ExchangeConsumers\Container $consumer,
 	)
 	{

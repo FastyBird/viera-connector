@@ -52,7 +52,7 @@ class Execute extends Console\Command\Command
 	public const NAME = 'fb:viera-connector:execute';
 
 	public function __construct(
-		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
+		private readonly DevicesModels\Entities\Connectors\ConnectorsRepository $connectorsRepository,
 		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)

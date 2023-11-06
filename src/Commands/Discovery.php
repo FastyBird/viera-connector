@@ -20,7 +20,6 @@ use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
-use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
@@ -32,6 +31,7 @@ use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use IPub\DoctrineCrud\Exceptions as DoctrineCrudExceptions;
 use Nette\Localization;
 use Nette\Utils;
@@ -72,10 +72,10 @@ class Discovery extends Console\Command\Command
 	public function __construct(
 		private readonly Api\TelevisionApiFactory $televisionApiFactory,
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Connectors\ConnectorsRepository $connectorsRepository,
-		private readonly DevicesModels\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
-		private readonly DevicesModels\Devices\Properties\PropertiesManager $devicesPropertiesManager,
+		private readonly DevicesModels\Entities\Connectors\ConnectorsRepository $connectorsRepository,
+		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
+		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		private readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly Localization\Translator $translator,
 		string|null $name = null,
@@ -556,7 +556,7 @@ class Discovery extends Console\Command\Command
 						'entity' => DevicesEntities\Devices\Properties\Variable::class,
 						'device' => $device,
 						'identifier' => Types\DevicePropertyIdentifier::APP_ID,
-						'name' => Helpers\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
+						'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
 						'value' => $authorization->getAppId(),
 						'format' => null,
@@ -578,7 +578,7 @@ class Discovery extends Console\Command\Command
 						'entity' => DevicesEntities\Devices\Properties\Variable::class,
 						'device' => $device,
 						'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
-						'name' => Helpers\Name::createName(
+						'name' => DevicesUtilities\Name::createName(
 							Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
 						),
 						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
