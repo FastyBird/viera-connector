@@ -234,7 +234,7 @@ final class DiscoveryTest extends Tests\Cases\Unit\DbTestCase
 			DevicesModels\Entities\Connectors\ConnectorsRepository::class,
 		);
 
-		$findConnectorQuery = new Queries\FindConnectors();
+		$findConnectorQuery = new Queries\Entities\FindConnectors();
 		$findConnectorQuery->byIdentifier('viera');
 
 		$connector = $connectorsRepository->findOneBy($findConnectorQuery, Entities\VieraConnector::class);
@@ -268,7 +268,7 @@ final class DiscoveryTest extends Tests\Cases\Unit\DbTestCase
 
 		$devicesRepository = $this->getContainer()->getByType(DevicesModels\Entities\Devices\DevicesRepository::class);
 
-		$findDeviceQuery = new Queries\FindDevices();
+		$findDeviceQuery = new Queries\Entities\FindDevices();
 		$findDeviceQuery->forConnector($connector);
 		$findDeviceQuery->byIdentifier('93e760e1-f011-4a33-a70d-c9629706ccf8');
 

@@ -66,7 +66,7 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 			return false;
 		}
 
-		$findDeviceQuery = new Queries\FindDevices();
+		$findDeviceQuery = new Queries\Entities\FindDevices();
 		$findDeviceQuery->byConnectorId($entity->getConnector());
 		$findDeviceQuery->byId($entity->getDevice());
 
@@ -107,7 +107,7 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 				|| $entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_ALERT)
 				|| $entity->getState()->equalsValue(Metadata\Types\ConnectionState::STATE_UNKNOWN)
 			) {
-				$findDevicePropertiesQuery = new DevicesQueries\FindDeviceDynamicProperties();
+				$findDevicePropertiesQuery = new DevicesQueries\Entities\FindDeviceDynamicProperties();
 				$findDevicePropertiesQuery->forDevice($device);
 
 				foreach ($this->devicesPropertiesRepository->findAllBy(
@@ -117,13 +117,13 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 					$this->devicePropertiesStateManager->setValidState($property, false);
 				}
 
-				$findChannelsQuery = new DevicesQueries\FindChannels();
+				$findChannelsQuery = new DevicesQueries\Entities\FindChannels();
 				$findChannelsQuery->forDevice($device);
 
 				$channels = $this->channelsRepository->findAllBy($findChannelsQuery);
 
 				foreach ($channels as $channel) {
-					$findChannelPropertiesQuery = new DevicesQueries\FindChannelDynamicProperties();
+					$findChannelPropertiesQuery = new DevicesQueries\Entities\FindChannelDynamicProperties();
 					$findChannelPropertiesQuery->forChannel($channel);
 
 					foreach ($this->channelsPropertiesRepository->findAllBy(

@@ -94,7 +94,7 @@ final class Television implements Client
 	{
 		$this->processedDevices = [];
 
-		$findDevicesQuery = new Queries\FindDevices();
+		$findDevicesQuery = new Queries\Entities\FindDevices();
 		$findDevicesQuery->forConnector($this->connector);
 
 		foreach ($this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class) as $device) {
@@ -134,7 +134,7 @@ final class Television implements Client
 	 */
 	private function handleCommunication(): void
 	{
-		$findDevicesQuery = new Queries\FindDevices();
+		$findDevicesQuery = new Queries\Entities\FindDevices();
 		$findDevicesQuery->forConnector($this->connector);
 
 		foreach ($this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class) as $device) {
@@ -263,7 +263,7 @@ final class Television implements Client
 			}
 		}
 
-		$findChannelsQuery = new DevicesQueries\FindChannels();
+		$findChannelsQuery = new DevicesQueries\Entities\FindChannels();
 		$findChannelsQuery->forDevice($device);
 		$findChannelsQuery->byIdentifier(Types\ChannelType::TELEVISION);
 
@@ -290,7 +290,7 @@ final class Television implements Client
 			return false;
 		}
 
-		$findChannelPropertiesQuery = new DevicesQueries\FindChannelProperties();
+		$findChannelPropertiesQuery = new DevicesQueries\Entities\FindChannelProperties();
 		$findChannelPropertiesQuery->forChannel($channel);
 
 		foreach ($this->channelsPropertiesRepository->findAllBy($findChannelPropertiesQuery) as $property) {

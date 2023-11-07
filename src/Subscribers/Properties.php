@@ -118,7 +118,7 @@ final class Properties implements Common\EventSubscriber
 	 */
 	private function configureDeviceState(Entities\VieraDevice $device): void
 	{
-		$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
+		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::STATE);
 
@@ -219,7 +219,7 @@ final class Properties implements Common\EventSubscriber
 		Types\ActionKey $key,
 	): void
 	{
-		$findChannelPropertyQuery = new DevicesQueries\FindChannelProperties();
+		$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelProperties();
 		$findChannelPropertyQuery->forChannel($channel);
 		$findChannelPropertyQuery->byIdentifier($identifier->getValue());
 
@@ -272,7 +272,7 @@ final class Properties implements Common\EventSubscriber
 	{
 		$channel = $property->getChannel();
 
-		$findChannelProperty = new DevicesQueries\FindChannelProperties();
+		$findChannelProperty = new DevicesQueries\Entities\FindChannelProperties();
 		$findChannelProperty->forChannel($channel);
 		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
 
@@ -285,7 +285,7 @@ final class Properties implements Common\EventSubscriber
 
 		$hdmiFormat = $hdmiFormat instanceof MetadataValueObjects\CombinedEnumFormat ? $hdmiFormat->toArray() : [];
 
-		$findChannelProperty = new DevicesQueries\FindChannelProperties();
+		$findChannelProperty = new DevicesQueries\Entities\FindChannelProperties();
 		$findChannelProperty->forChannel($channel);
 		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
 
@@ -300,7 +300,7 @@ final class Properties implements Common\EventSubscriber
 			? $applicationFormat->toArray()
 			: [];
 
-		$findChannelProperty = new DevicesQueries\FindChannelProperties();
+		$findChannelProperty = new DevicesQueries\Entities\FindChannelProperties();
 		$findChannelProperty->forChannel($channel);
 		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::INPUT_SOURCE);
 

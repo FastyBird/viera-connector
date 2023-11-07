@@ -69,7 +69,7 @@ trait DeviceProperty
 		array|string|null $format = null,
 	): void
 	{
-		$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
+		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->byDeviceId($deviceId);
 		$findDevicePropertyQuery->byIdentifier($identifier);
 
@@ -100,7 +100,7 @@ trait DeviceProperty
 			$property !== null
 			&& !$property instanceof DevicesEntities\Devices\Properties\Variable
 		) {
-			$findDevicePropertyQuery = new DevicesQueries\FindDeviceProperties();
+			$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
 			$findDevicePropertyQuery->byId($property->getId());
 
 			$property = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
@@ -130,7 +130,7 @@ trait DeviceProperty
 		}
 
 		if ($property === null) {
-			$findDeviceQuery = new Queries\FindDevices();
+			$findDeviceQuery = new Queries\Entities\FindDevices();
 			$findDeviceQuery->byId($deviceId);
 
 			$device = $this->devicesRepository->findOneBy(

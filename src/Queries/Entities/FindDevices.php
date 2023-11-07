@@ -13,7 +13,7 @@
  * @date           10.08.23
  */
 
-namespace FastyBird\Connector\Viera\Queries;
+namespace FastyBird\Connector\Viera\Queries\Entities;
 
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
@@ -22,14 +22,14 @@ use FastyBird\Module\Devices\Queries as DevicesQueries;
  * Find devices entities query
  *
  * @template T of Entities\VieraDevice
- * @extends  DevicesQueries\FindDevices<T>
+ * @extends  DevicesQueries\Entities\FindDevices<T>
  *
  * @package        FastyBird:VieraConnector!
  * @subpackage     Queries
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class FindDevices extends DevicesQueries\FindDevices
+class FindDevices extends DevicesQueries\Entities\FindDevices
 {
 
 }

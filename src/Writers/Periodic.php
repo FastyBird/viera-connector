@@ -110,7 +110,7 @@ class Periodic implements Writer
 	 */
 	private function handleCommunication(): void
 	{
-		$findDevicesQuery = new Queries\FindDevices();
+		$findDevicesQuery = new Queries\Entities\FindDevices();
 		$findDevicesQuery->forConnector($this->connector);
 
 		$devices = $this->devicesRepository->findAllBy(
@@ -151,13 +151,13 @@ class Periodic implements Writer
 	{
 		$now = $this->dateTimeFactory->getNow();
 
-		$findChannelsQuery = new DevicesQueries\FindChannels();
+		$findChannelsQuery = new DevicesQueries\Entities\FindChannels();
 		$findChannelsQuery->forDevice($device);
 
 		$channels = $this->channelsRepository->findAllBy($findChannelsQuery);
 
 		foreach ($channels as $channel) {
-			$findChannelPropertiesQuery = new DevicesQueries\FindChannelDynamicProperties();
+			$findChannelPropertiesQuery = new DevicesQueries\Entities\FindChannelDynamicProperties();
 			$findChannelPropertiesQuery->forChannel($channel);
 
 			$properties = $this->channelsPropertiesRepository->findAllBy(

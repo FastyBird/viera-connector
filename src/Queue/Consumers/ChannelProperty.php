@@ -69,7 +69,7 @@ trait ChannelProperty
 		bool $queryable = false,
 	): void
 	{
-		$findChannelPropertyQuery = new DevicesQueries\FindChannelProperties();
+		$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelProperties();
 		$findChannelPropertyQuery->byChannelId($channelId);
 		$findChannelPropertyQuery->byIdentifier($identifier);
 
@@ -97,7 +97,7 @@ trait ChannelProperty
 		}
 
 		if ($property !== null && !$property instanceof $type) {
-			$findChannelPropertyQuery = new DevicesQueries\FindChannelProperties();
+			$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelProperties();
 			$findChannelPropertyQuery->byId($property->getId());
 
 			$property = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
@@ -127,7 +127,7 @@ trait ChannelProperty
 		}
 
 		if ($property === null) {
-			$findChannelQuery = new DevicesQueries\FindChannels();
+			$findChannelQuery = new DevicesQueries\Entities\FindChannels();
 			$findChannelQuery->byId($channelId);
 
 			$channel = $this->channelsRepository->findOneBy($findChannelQuery);
