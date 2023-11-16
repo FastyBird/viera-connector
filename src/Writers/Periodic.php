@@ -107,6 +107,7 @@ class Periodic implements Writer
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
 	private function handleCommunication(): void
 	{
@@ -146,6 +147,7 @@ class Periodic implements Writer
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
 	private function writeChannelsProperty(Entities\VieraDevice $device): bool
 	{

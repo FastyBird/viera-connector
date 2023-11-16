@@ -19,7 +19,7 @@ use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
-use FastyBird\Library\Metadata\Entities as MetadataEntities;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Events as DevicesEvents;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -89,7 +89,7 @@ class Event implements Writer, EventDispatcher\EventSubscriberInterface
 
 		if (
 			$property instanceof DevicesEntities\Channels\Properties\Dynamic
-			|| $property instanceof MetadataEntities\DevicesModule\ChannelDynamicProperty
+			|| $property instanceof MetadataDocuments\DevicesModule\ChannelDynamicProperty
 		) {
 			if ($property->getChannel() instanceof DevicesEntities\Channels\Channel) {
 				$channel = $property->getChannel();
