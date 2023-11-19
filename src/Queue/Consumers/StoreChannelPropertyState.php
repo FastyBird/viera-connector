@@ -54,6 +54,7 @@ final class StoreChannelPropertyState implements Queue\Consumer
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -163,19 +164,19 @@ final class StoreChannelPropertyState implements Queue\Consumer
 
 		if ($property->getDataType()->equalsValue(MetadataTypes\DataType::DATA_TYPE_BUTTON)) {
 			$this->channelPropertiesStateManager->setValue($property, Utils\ArrayHash::from([
-				DevicesStates\Property::ACTUAL_VALUE_KEY => null,
-				DevicesStates\Property::EXPECTED_VALUE_KEY => null,
-				DevicesStates\Property::PENDING_KEY => false,
-				DevicesStates\Property::VALID_KEY => true,
+				DevicesStates\Property::ACTUAL_VALUE_FIELD => null,
+				DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+				DevicesStates\Property::PENDING_FIELD => false,
+				DevicesStates\Property::VALID_FIELD => true,
 			]));
 		} else {
 			$this->channelPropertiesStateManager->setValue($property, Utils\ArrayHash::from([
-				DevicesStates\Property::ACTUAL_VALUE_KEY => DevicesUtilities\ValueHelper::transformValueFromDevice(
+				DevicesStates\Property::ACTUAL_VALUE_FIELD => DevicesUtilities\ValueHelper::transformValueFromDevice(
 					$property->getDataType(),
 					$property->getFormat(),
 					$entity->getValue(),
 				),
-				DevicesStates\Property::VALID_KEY => true,
+				DevicesStates\Property::VALID_FIELD => true,
 			]));
 		}
 

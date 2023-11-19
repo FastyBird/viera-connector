@@ -58,6 +58,7 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 
 	/**
 	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws DevicesExceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
