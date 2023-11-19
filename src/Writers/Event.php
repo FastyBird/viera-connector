@@ -19,8 +19,6 @@ use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Events as DevicesEvents;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
@@ -87,43 +85,33 @@ class Event implements Writer, EventDispatcher\EventSubscriberInterface
 			return;
 		}
 
-		if (
-			$property instanceof DevicesEntities\Channels\Properties\Dynamic
-			|| $property instanceof MetadataDocuments\DevicesModule\ChannelDynamicProperty
-		) {
-			if ($property->getChannel() instanceof DevicesEntities\Channels\Channel) {
-				$channel = $property->getChannel();
+		$findChannelQuery = new DevicesQueries\Entities\FindChannels();
+		$findChannelQuery->byId($property->getChannel());
 
-			} else {
-				$findChannelQuery = new DevicesQueries\Entities\FindChannels();
-				$findChannelQuery->byId($property->getChannel());
+		$channel = $this->channelsRepository->findOneBy($findChannelQuery);
 
-				$channel = $this->channelsRepository->findOneBy($findChannelQuery);
-			}
-
-			if ($channel === null) {
-				return;
-			}
-
-			$device = $channel->getDevice();
-			assert($device instanceof Entities\VieraDevice);
-
-			if (!$device->getConnector()->getId()->equals($this->connector->getId())) {
-				return;
-			}
-
-			$this->queue->append(
-				$this->entityHelper->create(
-					Entities\Messages\WriteChannelPropertyState::class,
-					[
-						'connector' => $this->connector->getId()->toString(),
-						'device' => $device->getId()->toString(),
-						'channel' => $channel->getId()->toString(),
-						'property' => $property->getId()->toString(),
-					],
-				),
-			);
+		if ($channel === null) {
+			return;
 		}
+
+		$device = $channel->getDevice();
+		assert($device instanceof Entities\VieraDevice);
+
+		if (!$device->getConnector()->getId()->equals($this->connector->getId())) {
+			return;
+		}
+
+		$this->queue->append(
+			$this->entityHelper->create(
+				Entities\Messages\WriteChannelPropertyState::class,
+				[
+					'connector' => $this->connector->getId()->toString(),
+					'device' => $device->getId()->toString(),
+					'channel' => $channel->getId()->toString(),
+					'property' => $property->getId()->toString(),
+				],
+			),
+		);
 	}
 
 }
