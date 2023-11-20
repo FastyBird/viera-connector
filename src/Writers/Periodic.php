@@ -103,6 +103,7 @@ class Periodic implements Writer
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
@@ -143,6 +144,7 @@ class Periodic implements Writer
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument

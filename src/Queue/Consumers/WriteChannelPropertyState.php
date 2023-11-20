@@ -71,6 +71,7 @@ final class WriteChannelPropertyState implements Queue\Consumer
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
