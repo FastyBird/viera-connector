@@ -24,6 +24,7 @@ use FastyBird\Connector\Viera\Queue;
 use FastyBird\DateTimeFactory;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Library\Metadata\Utilities as MetadataUtilities;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
@@ -176,7 +177,7 @@ class Periodic implements Writer
 					continue;
 				}
 
-				$expectedValue = DevicesUtilities\ValueHelper::flattenValue($state->getExpectedValue());
+				$expectedValue = MetadataUtilities\ValueHelper::flattenValue($state->getExpectedValue());
 
 				if (
 					$property->isSettable()

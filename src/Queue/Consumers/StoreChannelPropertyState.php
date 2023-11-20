@@ -21,6 +21,7 @@ use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Library\Metadata\Utilities as MetadataUtilities;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
@@ -171,7 +172,7 @@ final class StoreChannelPropertyState implements Queue\Consumer
 			]));
 		} else {
 			$this->channelPropertiesStateManager->setValue($property, Utils\ArrayHash::from([
-				DevicesStates\Property::ACTUAL_VALUE_FIELD => DevicesUtilities\ValueHelper::transformValueFromDevice(
+				DevicesStates\Property::ACTUAL_VALUE_FIELD => MetadataUtilities\ValueHelper::transformValueFromDevice(
 					$property->getDataType(),
 					$property->getFormat(),
 					$entity->getValue(),
