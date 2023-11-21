@@ -329,7 +329,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 				$this->entityHelper->create(
 					Entities\Messages\StoreDevice::class,
 					[
-						'connector' => $this->connector->getId()->toString(),
+						'connector' => $this->connector->getId(),
 						'identifier' => $device->getIdentifier(),
 						'ip_address' => $device->getIpAddress(),
 						'port' => $device->getPort(),

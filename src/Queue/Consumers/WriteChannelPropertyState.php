@@ -21,15 +21,14 @@ use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
-use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Library\Metadata\Utilities as MetadataUtilities;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
@@ -56,16 +55,23 @@ final class WriteChannelPropertyState implements Queue\Consumer
 
 	use Nette\SmartObject;
 
+	/**
+	 * @param DevicesModels\Configuration\Connectors\Repository<MetadataDocuments\DevicesModule\Connector> $connectorsConfigurationRepository
+	 * @param DevicesModels\Configuration\Devices\Repository<MetadataDocuments\DevicesModule\Device> $devicesConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Repository<MetadataDocuments\DevicesModule\Channel> $channelsConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Properties\Repository<MetadataDocuments\DevicesModule\ChannelDynamicProperty> $channelsPropertiesConfigurationRepository
+	 */
 	public function __construct(
 		private readonly Queue\Queue $queue,
 		private readonly API\ConnectionManager $connectionManager,
 		private readonly Helpers\Entity $entityHelper,
+		private readonly Helpers\Device $deviceHelper,
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Entities\Connectors\ConnectorsRepository $connectorsRepository,
-		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
-		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStates,
+		private readonly DevicesModels\Configuration\Connectors\Repository $connectorsConfigurationRepository,
+		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
+		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 	)
 	{
@@ -87,10 +93,12 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			return false;
 		}
 
-		$findConnectorQuery = new Queries\Entities\FindConnectors();
+		$now = $this->dateTimeFactory->getNow();
+
+		$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
 		$findConnectorQuery->byId($entity->getConnector());
 
-		$connector = $this->connectorsRepository->findOneBy($findConnectorQuery, Entities\VieraConnector::class);
+		$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
 
 		if ($connector === null) {
 			$this->logger->error(
@@ -117,11 +125,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		$findDeviceQuery = new Queries\Entities\FindDevices();
+		$findDeviceQuery = new DevicesQueries\Configuration\FindDevices();
 		$findDeviceQuery->forConnector($connector);
 		$findDeviceQuery->byId($entity->getDevice());
 
-		$device = $this->devicesRepository->findOneBy($findDeviceQuery, Entities\VieraDevice::class);
+		$device = $this->devicesConfigurationRepository->findOneBy($findDeviceQuery);
 
 		if ($device === null) {
 			$this->logger->error(
@@ -148,13 +156,13 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		if ($device->getIpAddress() === null) {
+		if ($this->deviceHelper->getIpAddress($device) === null) {
 			$this->queue->append(
 				$this->entityHelper->create(
 					Entities\Messages\StoreDeviceConnectionState::class,
 					[
-						'connector' => $connector->getId()->toString(),
-						'device' => $device->getId()->toString(),
+						'connector' => $connector->getId(),
+						'device' => $device->getId(),
 						'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 					],
 				),
@@ -184,11 +192,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		$findChannelQuery = new DevicesQueries\Entities\FindChannels();
+		$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
 		$findChannelQuery->forDevice($device);
 		$findChannelQuery->byId($entity->getChannel());
 
-		$channel = $this->channelsRepository->findOneBy($findChannelQuery);
+		$channel = $this->channelsConfigurationRepository->findOneBy($findChannelQuery);
 
 		if ($channel === null) {
 			$this->logger->error(
@@ -215,13 +223,13 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelDynamicProperties();
+		$findChannelPropertyQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
 		$findChannelPropertyQuery->forChannel($channel);
 		$findChannelPropertyQuery->byId($entity->getProperty());
 
-		$property = $this->channelsPropertiesRepository->findOneBy(
+		$property = $this->channelsPropertiesConfigurationRepository->findOneBy(
 			$findChannelPropertyQuery,
-			DevicesEntities\Channels\Properties\Dynamic::class,
+			MetadataDocuments\DevicesModule\ChannelDynamicProperty::class,
 		);
 
 		if ($property === null) {
@@ -274,27 +282,36 @@ final class WriteChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		$state = $this->channelPropertiesStates->getValue($property);
+		$state = $this->channelPropertiesStatesManager->getValue($property);
 
 		if ($state === null) {
 			return true;
 		}
 
-		$expectedValue = MetadataUtilities\ValueHelper::flattenValue($state->getExpectedValue());
-
-		if ($expectedValue === null) {
-			return true;
-		}
-
-		$valueToWrite = MetadataUtilities\ValueHelper::transformValueToDevice(
+		$expectedValue = MetadataUtilities\ValueHelper::transformValueToDevice(
 			$property->getDataType(),
 			$property->getFormat(),
-			$expectedValue,
+			$state->getExpectedValue(),
 		);
 
-		if ($valueToWrite === null) {
+		if ($expectedValue === null) {
+			$this->channelPropertiesStatesManager->setValue(
+				$property,
+				Utils\ArrayHash::from([
+					DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+					DevicesStates\Property::PENDING_FIELD => false,
+				]),
+			);
+
 			return true;
 		}
+
+		$this->channelPropertiesStatesManager->setValue(
+			$property,
+			Utils\ArrayHash::from([
+				DevicesStates\Property::PENDING_FIELD => $now->format(DateTimeInterface::ATOM),
+			]),
+		);
 
 		try {
 			$client = $this->connectionManager->getConnection($device);
@@ -305,33 +322,33 @@ final class WriteChannelPropertyState implements Queue\Consumer
 
 			switch ($property->getIdentifier()) {
 				case Types\ChannelPropertyIdentifier::STATE:
-					$result = $valueToWrite === true ? $client->turnOn() : $client->turnOff();
+					$result = $expectedValue === true ? $client->turnOn() : $client->turnOff();
 
 					break;
 				case Types\ChannelPropertyIdentifier::VOLUME:
-					$result = $client->setVolume(intval($valueToWrite));
+					$result = $client->setVolume(intval($expectedValue));
 
 					break;
 				case Types\ChannelPropertyIdentifier::MUTE:
-					$result = $client->setMute(boolval($valueToWrite));
+					$result = $client->setMute(boolval($expectedValue));
 
 					break;
 				case Types\ChannelPropertyIdentifier::INPUT_SOURCE:
-					if (intval($valueToWrite) < 100) {
-						$result = $client->sendKey('NRC_HDMI' . $valueToWrite . '-ONOFF');
-					} elseif (intval($valueToWrite) === 500) {
+					if (intval($expectedValue) < 100) {
+						$result = $client->sendKey('NRC_HDMI' . $expectedValue . '-ONOFF');
+					} elseif (intval($expectedValue) === 500) {
 						$result = $client->sendKey(Types\ActionKey::get(Types\ActionKey::AD_CHANGE));
 					} else {
-						$result = $client->launchApplication(strval($valueToWrite));
+						$result = $client->launchApplication(strval($expectedValue));
 					}
 
 					break;
 				case Types\ChannelPropertyIdentifier::APPLICATION:
-					$result = $client->launchApplication(strval($valueToWrite));
+					$result = $client->launchApplication(strval($expectedValue));
 
 					break;
 				case Types\ChannelPropertyIdentifier::HDMI:
-					$result = $client->sendKey('NRC_HDMI' . $valueToWrite . '-ONOFF');
+					$result = $client->sendKey('NRC_HDMI' . $expectedValue . '-ONOFF');
 
 					break;
 				default:
@@ -339,7 +356,7 @@ final class WriteChannelPropertyState implements Queue\Consumer
 						Types\ChannelPropertyIdentifier::isValidValue($property->getIdentifier())
 						&& $property->getDataType()->equalsValue(MetadataTypes\DataType::DATA_TYPE_BUTTON)
 					) {
-						$result = $client->sendKey(Types\ActionKey::get($valueToWrite));
+						$result = $client->sendKey(Types\ActionKey::get($expectedValue));
 					} else {
 						$this->logger->error(
 							'Provided property is not supported for writing',
@@ -372,8 +389,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 				$this->entityHelper->create(
 					Entities\Messages\StoreDeviceConnectionState::class,
 					[
-						'connector' => $connector->getId()->toString(),
-						'device' => $device->getId()->toString(),
+						'connector' => $connector->getId(),
+						'device' => $device->getId(),
 						'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 					],
 				),
@@ -407,8 +424,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 				$this->entityHelper->create(
 					Entities\Messages\StoreDeviceConnectionState::class,
 					[
-						'connector' => $connector->getId()->toString(),
-						'device' => $device->getId()->toString(),
+						'connector' => $connector->getId(),
+						'device' => $device->getId(),
 						'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 					],
 				),
@@ -442,8 +459,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 				$this->entityHelper->create(
 					Entities\Messages\StoreDeviceConnectionState::class,
 					[
-						'connector' => $connector->getId()->toString(),
-						'device' => $device->getId()->toString(),
+						'connector' => $connector->getId(),
+						'device' => $device->getId(),
 						'state' => MetadataTypes\ConnectionState::STATE_DISCONNECTED,
 					],
 				),
@@ -483,13 +500,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 		}
 
 		$result->then(
-			function () use ($connector, $device, $property, $valueToWrite): void {
-				$now = $this->dateTimeFactory->getNow();
-
-				$state = $this->channelPropertiesStates->getValue($property);
+			function () use ($connector, $device, $property, $expectedValue, $now): void {
+				$state = $this->channelPropertiesStatesManager->getValue($property);
 
 				if ($state?->getExpectedValue() !== null) {
-					$this->channelPropertiesStates->setValue(
+					$this->channelPropertiesStatesManager->setValue(
 						$property,
 						Utils\ArrayHash::from([
 							DevicesStates\Property::PENDING_FIELD => $now->format(DateTimeInterface::ATOM),
@@ -508,11 +523,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 							$this->entityHelper->create(
 								Entities\Messages\StoreChannelPropertyState::class,
 								[
-									'connector' => $connector->getId()->toString(),
-									'device' => $device->getId()->toString(),
+									'connector' => $connector->getId(),
+									'device' => $device->getId(),
 									'channel' => Types\ChannelType::TELEVISION,
-									'property' => $property->getIdentifier(),
-									'value' => $valueToWrite,
+									'property' => $property->getId(),
+									'value' => $expectedValue,
 								],
 							),
 						);
@@ -527,11 +542,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 								$this->entityHelper->create(
 									Entities\Messages\StoreChannelPropertyState::class,
 									[
-										'connector' => $connector->getId()->toString(),
-										'device' => $device->getId()->toString(),
+										'connector' => $connector->getId(),
+										'device' => $device->getId(),
 										'channel' => Types\ChannelType::TELEVISION,
-										'property' => $property->getIdentifier(),
-										'value' => $valueToWrite,
+										'property' => $property->getId(),
+										'value' => $expectedValue,
 									],
 								),
 							);
@@ -545,11 +560,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 						$this->entityHelper->create(
 							Entities\Messages\StoreChannelPropertyState::class,
 							[
-								'connector' => $connector->getId()->toString(),
-								'device' => $device->getId()->toString(),
+								'connector' => $connector->getId(),
+								'device' => $device->getId(),
 								'channel' => Types\ChannelType::TELEVISION,
 								'property' => Types\ChannelPropertyIdentifier::HDMI,
-								'value' => intval($valueToWrite) < 100 ? $valueToWrite : null,
+								'value' => intval($expectedValue) < 100 ? $expectedValue : null,
 							],
 						),
 					);
@@ -558,11 +573,11 @@ final class WriteChannelPropertyState implements Queue\Consumer
 						$this->entityHelper->create(
 							Entities\Messages\StoreChannelPropertyState::class,
 							[
-								'connector' => $connector->getId()->toString(),
-								'device' => $device->getId()->toString(),
+								'connector' => $connector->getId(),
+								'device' => $device->getId(),
 								'channel' => Types\ChannelType::TELEVISION,
 								'property' => Types\ChannelPropertyIdentifier::APPLICATION,
-								'value' => intval($valueToWrite) !== 500 ? $valueToWrite : null,
+								'value' => intval($expectedValue) !== 500 ? $expectedValue : null,
 							],
 						),
 					);
@@ -577,8 +592,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 							$this->entityHelper->create(
 								Entities\Messages\StoreChannelPropertyState::class,
 								[
-									'connector' => $connector->getId()->toString(),
-									'device' => $device->getId()->toString(),
+									'connector' => $connector->getId(),
+									'device' => $device->getId(),
 									'channel' => Types\ChannelType::TELEVISION,
 									'property' => Types\ChannelPropertyIdentifier::APPLICATION,
 									'value' => null,
@@ -592,8 +607,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 							$this->entityHelper->create(
 								Entities\Messages\StoreChannelPropertyState::class,
 								[
-									'connector' => $connector->getId()->toString(),
-									'device' => $device->getId()->toString(),
+									'connector' => $connector->getId(),
+									'device' => $device->getId(),
 									'channel' => Types\ChannelType::TELEVISION,
 									'property' => Types\ChannelPropertyIdentifier::HDMI,
 									'value' => null,
@@ -606,18 +621,18 @@ final class WriteChannelPropertyState implements Queue\Consumer
 						$this->entityHelper->create(
 							Entities\Messages\StoreChannelPropertyState::class,
 							[
-								'connector' => $connector->getId()->toString(),
-								'device' => $device->getId()->toString(),
+								'connector' => $connector->getId(),
+								'device' => $device->getId(),
 								'channel' => Types\ChannelType::TELEVISION,
 								'property' => Types\ChannelPropertyIdentifier::INPUT_SOURCE,
-								'value' => $valueToWrite,
+								'value' => $expectedValue,
 							],
 						),
 					);
 				}
 			},
-			function (Throwable $ex) use ($connector, $device, $property): void {
-				$this->channelPropertiesStates->setValue(
+			function (Throwable $ex) use ($device, $property): void {
+				$this->channelPropertiesStatesManager->setValue(
 					$property,
 					Utils\ArrayHash::from([
 						DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
@@ -630,8 +645,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 						$this->entityHelper->create(
 							Entities\Messages\StoreDeviceConnectionState::class,
 							[
-								'connector' => $device->getConnector()->getId()->toString(),
-								'device' => $device->getId()->toString(),
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
 								'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 							],
 						),
@@ -641,8 +656,8 @@ final class WriteChannelPropertyState implements Queue\Consumer
 						$this->entityHelper->create(
 							Entities\Messages\StoreDeviceConnectionState::class,
 							[
-								'connector' => $connector->getId()->toString(),
-								'device' => $device->getId()->toString(),
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
 								'state' => MetadataTypes\ConnectionState::STATE_DISCONNECTED,
 							],
 						),

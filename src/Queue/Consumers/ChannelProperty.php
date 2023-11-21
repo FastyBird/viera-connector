@@ -21,9 +21,7 @@ use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
-use FastyBird\Module\Devices\Models\Entities\Channels\ChannelsRepository;
-use FastyBird\Module\Devices\Models\Entities\Channels\Properties\PropertiesManager;
-use FastyBird\Module\Devices\Models\Entities\Channels\Properties\PropertiesRepository;
+use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette\Utils;
@@ -38,9 +36,9 @@ use function array_merge;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  *
- * @property-read ChannelsRepository $channelsRepository
- * @property-read PropertiesRepository $channelsPropertiesRepository
- * @property-read PropertiesManager $channelsPropertiesManager
+ * @property-read DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository
+ * @property-read DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository
+ * @property-read DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager
  * @property-read DevicesUtilities\Database $databaseHelper
  * @property-read Viera\Logger $logger
  */
@@ -108,7 +106,7 @@ trait ChannelProperty
 				});
 
 				$this->logger->warning(
-					'Device property is not valid type',
+					'Stored channel property was not of valid type',
 					[
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 						'type' => 'message-consumer',

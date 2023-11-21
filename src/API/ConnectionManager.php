@@ -15,8 +15,10 @@
 
 namespace FastyBird\Connector\Viera\API;
 
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
+use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use Nette;
 use Throwable;
 use function array_key_exists;
@@ -41,26 +43,29 @@ final class ConnectionManager
 
 	public function __construct(
 		private readonly TelevisionApiFactory $televisionApiFactory,
+		private readonly Helpers\Device $deviceHelper,
 	)
 	{
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
-	public function getConnection(Entities\VieraDevice $device): TelevisionApi
+	public function getConnection(MetadataDocuments\DevicesModule\Device $device): TelevisionApi
 	{
 		if (!array_key_exists($device->getId()->toString(), $this->connections)) {
-			assert(is_string($device->getIpAddress()));
+			assert(is_string($this->deviceHelper->getIpAddress($device)));
 
 			$connection = $this->televisionApiFactory->create(
 				$device->getIdentifier(),
-				$device->getIpAddress(),
-				$device->getPort(),
-				$device->getAppId(),
-				$device->getEncryptionKey(),
-				$device->getMacAddress(),
+				$this->deviceHelper->getIpAddress($device),
+				$this->deviceHelper->getPort($device),
+				$this->deviceHelper->getAppId($device),
+				$this->deviceHelper->getEncryptionKey($device),
+				$this->deviceHelper->getMacAddress($device),
 			);
 
 			$this->connections[$device->getId()->toString()] = $connection;

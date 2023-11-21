@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Clients;
 
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 
 /**
  * Base device client factory
@@ -28,6 +28,6 @@ use FastyBird\Connector\Viera\Entities;
 interface ClientFactory
 {
 
-	public function create(Entities\VieraConnector $connector): Client;
+	public function create(MetadataDocuments\DevicesModule\Connector $connector): Client;
 
 }

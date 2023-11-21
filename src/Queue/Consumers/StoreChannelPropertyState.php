@@ -17,12 +17,11 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
-use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Library\Metadata\Utilities as MetadataUtilities;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
@@ -30,6 +29,7 @@ use FastyBird\Module\Devices\States as DevicesStates;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette;
 use Nette\Utils;
+use Ramsey\Uuid;
 
 /**
  * Store channel property state message consumer
@@ -44,11 +44,16 @@ final class StoreChannelPropertyState implements Queue\Consumer
 
 	use Nette\SmartObject;
 
+	/**
+	 * @param DevicesModels\Configuration\Devices\Repository<MetadataDocuments\DevicesModule\Device> $devicesConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Repository<MetadataDocuments\DevicesModule\Channel> $channelsConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Properties\Repository<MetadataDocuments\DevicesModule\ChannelDynamicProperty> $channelsPropertiesConfigurationRepository
+	 */
 	public function __construct(
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
-		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
+		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
 		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStateManager,
 	)
 	{
@@ -67,11 +72,11 @@ final class StoreChannelPropertyState implements Queue\Consumer
 			return false;
 		}
 
-		$findDeviceQuery = new Queries\Entities\FindDevices();
+		$findDeviceQuery = new DevicesQueries\Configuration\FindDevices();
 		$findDeviceQuery->byConnectorId($entity->getConnector());
 		$findDeviceQuery->byId($entity->getDevice());
 
-		$device = $this->devicesRepository->findOneBy($findDeviceQuery, Entities\VieraDevice::class);
+		$device = $this->devicesConfigurationRepository->findOneBy($findDeviceQuery);
 
 		if ($device === null) {
 			$this->logger->error(
@@ -98,11 +103,15 @@ final class StoreChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		$findChannelQuery = new DevicesQueries\Entities\FindChannels();
+		$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
 		$findChannelQuery->forDevice($device);
-		$findChannelQuery->byIdentifier($entity->getChannel());
+		if ($entity->getChannel() instanceof Uuid\UuidInterface) {
+			$findChannelQuery->byId($entity->getChannel());
+		} else {
+			$findChannelQuery->byIdentifier($entity->getChannel());
+		}
 
-		$channel = $this->channelsRepository->findOneBy($findChannelQuery);
+		$channel = $this->channelsConfigurationRepository->findOneBy($findChannelQuery);
 
 		if ($channel === null) {
 			$this->logger->error(
@@ -129,13 +138,17 @@ final class StoreChannelPropertyState implements Queue\Consumer
 			return true;
 		}
 
-		$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelDynamicProperties();
+		$findChannelPropertyQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
 		$findChannelPropertyQuery->forChannel($channel);
-		$findChannelPropertyQuery->byIdentifier($entity->getProperty());
+		if ($entity->getProperty() instanceof Uuid\UuidInterface) {
+			$findChannelPropertyQuery->byId($entity->getProperty());
+		} else {
+			$findChannelPropertyQuery->byIdentifier($entity->getProperty());
+		}
 
-		$property = $this->channelsPropertiesRepository->findOneBy(
+		$property = $this->channelsPropertiesConfigurationRepository->findOneBy(
 			$findChannelPropertyQuery,
-			DevicesEntities\Channels\Properties\Dynamic::class,
+			MetadataDocuments\DevicesModule\ChannelDynamicProperty::class,
 		);
 
 		if ($property === null) {

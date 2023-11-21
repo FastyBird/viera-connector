@@ -19,13 +19,16 @@ use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
+use FastyBird\DateTimeFactory;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Module\Devices\Events as DevicesEvents;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
-use Nette;
+use FastyBird\Module\Devices\Utilities as DevicesUtilities;
+use React\EventLoop;
 use Symfony\Component\EventDispatcher;
-use function assert;
 
 /**
  * Event based properties writer
@@ -35,20 +38,39 @@ use function assert;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class Event implements Writer, EventDispatcher\EventSubscriberInterface
+class Event extends Periodic implements Writer, EventDispatcher\EventSubscriberInterface
 {
-
-	use Nette\SmartObject;
 
 	public const NAME = 'event';
 
+	/**
+	 * @param DevicesModels\Configuration\Devices\Repository<MetadataDocuments\DevicesModule\Device> $devicesConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Repository<MetadataDocuments\DevicesModule\Channel> $channelsConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Properties\Repository<MetadataDocuments\DevicesModule\ChannelDynamicProperty> $channelsPropertiesConfigurationRepository
+	 */
 	public function __construct(
-		private readonly Entities\VieraConnector $connector,
-		private readonly Helpers\Entity $entityHelper,
-		private readonly Queue\Queue $queue,
-		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
+		MetadataDocuments\DevicesModule\Connector $connector,
+		Helpers\Entity $entityHelper,
+		Queue\Queue $queue,
+		DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
+		DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
+		DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
+		DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
+		DateTimeFactory\Factory $dateTimeFactory,
+		EventLoop\LoopInterface $eventLoop,
 	)
 	{
+		parent::__construct(
+			$connector,
+			$entityHelper,
+			$queue,
+			$devicesConfigurationRepository,
+			$channelsConfigurationRepository,
+			$channelsPropertiesConfigurationRepository,
+			$channelPropertiesStatesManager,
+			$dateTimeFactory,
+			$eventLoop,
+		);
 	}
 
 	public static function getSubscribedEvents(): array
@@ -59,19 +81,12 @@ class Event implements Writer, EventDispatcher\EventSubscriberInterface
 		];
 	}
 
-	public function connect(): void
-	{
-		// Nothing to do here
-	}
-
-	public function disconnect(): void
-	{
-		// Nothing to do here
-	}
-
 	/**
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
 	public function stateChanged(
 		DevicesEvents\ChannelPropertyStateEntityCreated|DevicesEvents\ChannelPropertyStateEntityUpdated $event,
@@ -85,19 +100,25 @@ class Event implements Writer, EventDispatcher\EventSubscriberInterface
 			return;
 		}
 
-		$findChannelQuery = new DevicesQueries\Entities\FindChannels();
+		$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
 		$findChannelQuery->byId($property->getChannel());
 
-		$channel = $this->channelsRepository->findOneBy($findChannelQuery);
+		$channel = $this->channelsConfigurationRepository->findOneBy($findChannelQuery);
 
 		if ($channel === null) {
 			return;
 		}
 
-		$device = $channel->getDevice();
-		assert($device instanceof Entities\VieraDevice);
+		$findDeviceQuery = new DevicesQueries\Configuration\FindDevices();
+		$findDeviceQuery->byId($channel->getDevice());
 
-		if (!$device->getConnector()->getId()->equals($this->connector->getId())) {
+		$device = $this->devicesConfigurationRepository->findOneBy($findDeviceQuery);
+
+		if ($device === null) {
+			return;
+		}
+
+		if (!$device->getConnector()->equals($this->connector->getId())) {
 			return;
 		}
 
@@ -105,10 +126,10 @@ class Event implements Writer, EventDispatcher\EventSubscriberInterface
 			$this->entityHelper->create(
 				Entities\Messages\WriteChannelPropertyState::class,
 				[
-					'connector' => $this->connector->getId()->toString(),
-					'device' => $device->getId()->toString(),
-					'channel' => $channel->getId()->toString(),
-					'property' => $property->getId()->toString(),
+					'connector' => $this->connector->getId(),
+					'device' => $device->getId(),
+					'channel' => $channel->getId(),
+					'property' => $property->getId(),
 				],
 			),
 		);

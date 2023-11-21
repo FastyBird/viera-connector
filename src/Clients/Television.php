@@ -21,14 +21,13 @@ use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
-use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
@@ -58,6 +57,12 @@ final class Television implements Client
 
 	private const HANDLER_PROCESSING_INTERVAL = 0.01;
 
+	/** @var array<string, MetadataDocuments\DevicesModule\Device>  */
+	private array $devices = [];
+
+	/** @var array<string, array<string, MetadataDocuments\DevicesModule\ChannelDynamicProperty>>  */
+	private array $properties = [];
+
 	/** @var array<string, API\TelevisionApi> */
 	private array $devicesClients = [];
 
@@ -69,16 +74,22 @@ final class Television implements Client
 
 	private EventLoop\TimerInterface|null $handlerTimer = null;
 
+	/**
+	 * @param DevicesModels\Configuration\Devices\Repository<MetadataDocuments\DevicesModule\Device> $devicesConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Repository<MetadataDocuments\DevicesModule\Channel> $channelsConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Properties\Repository<MetadataDocuments\DevicesModule\ChannelDynamicProperty> $channelsPropertiesConfigurationRepository
+	 */
 	public function __construct(
-		private readonly Entities\VieraConnector $connector,
+		private readonly MetadataDocuments\DevicesModule\Connector $connector,
 		private readonly API\ConnectionManager $connectionManager,
 		private readonly Queue\Queue $queue,
 		private readonly Helpers\Entity $entityHelper,
+		private readonly Helpers\Device $deviceHelper,
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
-		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		private readonly DevicesUtilities\DeviceConnection $deviceConnection,
+		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
+		private readonly DevicesUtilities\DeviceConnection $deviceConnectionManager,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
 	)
@@ -87,17 +98,61 @@ final class Television implements Client
 
 	/**
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
 	public function connect(): void
 	{
 		$this->processedDevices = [];
+		$this->processedChannelsProperties = [];
 
-		$findDevicesQuery = new Queries\Entities\FindDevices();
+		$findDevicesQuery = new DevicesQueries\Configuration\FindDevices();
 		$findDevicesQuery->forConnector($this->connector);
 
-		foreach ($this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class) as $device) {
+		foreach ($this->devicesConfigurationRepository->findAllBy($findDevicesQuery) as $device) {
+			if (!array_key_exists($device->getId()->toString(), $this->properties)) {
+				$this->properties[$device->getId()->toString()] = [];
+			}
+
+			$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
+			$findChannelQuery->forDevice($device);
+			$findChannelQuery->byIdentifier(Types\ChannelType::TELEVISION);
+
+			$channel = $this->channelsConfigurationRepository->findOneBy($findChannelQuery);
+
+			if ($channel === null) {
+				$this->queue->append(
+					$this->entityHelper->create(
+						Entities\Messages\StoreDeviceConnectionState::class,
+						[
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
+							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+						],
+					),
+				);
+
+				continue;
+			}
+
+			$this->devices[$device->getId()->toString()] = $device;
+
+			$findChannelPropertiesQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
+			$findChannelPropertiesQuery->forChannel($channel);
+
+			$properties = $this->channelsPropertiesConfigurationRepository->findAllBy(
+				$findChannelPropertiesQuery,
+				MetadataDocuments\DevicesModule\ChannelDynamicProperty::class,
+			);
+
+			foreach ($properties as $property) {
+				if ($property->isSettable()) {
+					$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
+				}
+			}
+
 			$this->createDeviceClient($device);
 		}
 
@@ -136,16 +191,8 @@ final class Television implements Client
 	 */
 	private function handleCommunication(): void
 	{
-		$findDevicesQuery = new Queries\Entities\FindDevices();
-		$findDevicesQuery->forConnector($this->connector);
-
-		foreach ($this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class) as $device) {
-			if (
-				!in_array($device->getId()->toString(), $this->processedDevices, true)
-				&& !$this->deviceConnection->getState($device)->equalsValue(
-					MetadataTypes\ConnectionState::STATE_ALERT,
-				)
-			) {
+		foreach ($this->devices as $device) {
+			if (!in_array($device->getId()->toString(), $this->processedDevices, true)) {
 				$this->processedDevices[] = $device->getId()->toString();
 
 				if ($this->processDevice($device)) {
@@ -162,12 +209,14 @@ final class Television implements Client
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
-	private function processDevice(Entities\VieraDevice $device): bool
+	private function processDevice(MetadataDocuments\DevicesModule\Device $device): bool
 	{
 		$client = $this->getDeviceClient($device);
 
@@ -178,6 +227,14 @@ final class Television implements Client
 		}
 
 		if (!$client->isConnected()) {
+			$deviceState = $this->deviceConnectionManager->getState($device);
+
+			if ($deviceState->equalsValue(MetadataTypes\ConnectionState::STATE_ALERT)) {
+				unset($this->devices[$device->getId()->toString()]);
+
+				return false;
+			}
+
 			try {
 				$client->connect(true);
 
@@ -185,8 +242,8 @@ final class Television implements Client
 					$this->entityHelper->create(
 						Entities\Messages\StoreDeviceConnectionState::class,
 						[
-							'connector' => $device->getConnector()->getId()->toString(),
-							'device' => $device->getId()->toString(),
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
 							'state' => MetadataTypes\ConnectionState::STATE_CONNECTED,
 						],
 					),
@@ -211,8 +268,8 @@ final class Television implements Client
 					$this->entityHelper->create(
 						Entities\Messages\StoreDeviceConnectionState::class,
 						[
-							'connector' => $device->getConnector()->getId()->toString(),
-							'device' => $device->getId()->toString(),
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
 							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 						],
 					),
@@ -236,8 +293,8 @@ final class Television implements Client
 					$this->entityHelper->create(
 						Entities\Messages\StoreDeviceConnectionState::class,
 						[
-							'connector' => $device->getConnector()->getId()->toString(),
-							'device' => $device->getId()->toString(),
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
 							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 						],
 					),
@@ -265,41 +322,7 @@ final class Television implements Client
 			}
 		}
 
-		$findChannelsQuery = new DevicesQueries\Entities\FindChannels();
-		$findChannelsQuery->forDevice($device);
-		$findChannelsQuery->byIdentifier(Types\ChannelType::TELEVISION);
-
-		$channel = $this->channelsRepository->findOneBy($findChannelsQuery);
-
-		if ($channel === null) {
-			$this->queue->append(
-				$this->entityHelper->create(
-					Entities\Messages\StoreDeviceConnectionState::class,
-					[
-						'connector' => $device->getConnector()->getId()->toString(),
-						'device' => $device->getId()->toString(),
-						'state' => MetadataTypes\ConnectionState::STATE_ALERT,
-					],
-				),
-			);
-
-			try {
-				$this->getDeviceClient($device)?->disconnect();
-			} catch (Throwable) {
-				// Just ignore
-			}
-
-			return false;
-		}
-
-		$findChannelPropertiesQuery = new DevicesQueries\Entities\FindChannelProperties();
-		$findChannelPropertiesQuery->forChannel($channel);
-
-		foreach ($this->channelsPropertiesRepository->findAllBy($findChannelPropertiesQuery) as $property) {
-			if (!$property instanceof DevicesEntities\Channels\Properties\Dynamic) {
-				continue;
-			}
-
+		foreach ($this->properties[$device->getId()->toString()] as $property) {
 			if (!array_key_exists($device->getId()->toString(), $this->processedChannelsProperties)) {
 				$this->processedChannelsProperties[$device->getId()->toString()] = [];
 			}
@@ -313,7 +336,8 @@ final class Television implements Client
 				if (
 					$cmdResult instanceof DateTimeInterface
 					&& (
-						$this->dateTimeFactory->getNow()->getTimestamp() - $cmdResult->getTimestamp() < $device->getStateReadingDelay()
+						$this->dateTimeFactory->getNow()->getTimestamp() - $cmdResult->getTimestamp()
+						< $this->deviceHelper->getStateReadingDelay($device)
 					)
 				) {
 					return false;
@@ -321,6 +345,14 @@ final class Television implements Client
 			}
 
 			$this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()] = $this->dateTimeFactory->getNow();
+
+			$deviceState = $this->deviceConnectionManager->getState($device);
+
+			if ($deviceState->equalsValue(MetadataTypes\ConnectionState::STATE_ALERT)) {
+				unset($this->devices[$device->getId()->toString()]);
+
+				return false;
+			}
 
 			$result = null;
 
@@ -344,8 +376,8 @@ final class Television implements Client
 					$this->entityHelper->create(
 						Entities\Messages\StoreDeviceConnectionState::class,
 						[
-							'connector' => $device->getConnector()->getId()->toString(),
-							'device' => $device->getId()->toString(),
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
 							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 						],
 					),
@@ -383,8 +415,8 @@ final class Television implements Client
 					$this->entityHelper->create(
 						Entities\Messages\StoreDeviceConnectionState::class,
 						[
-							'connector' => $device->getConnector()->getId()->toString(),
-							'device' => $device->getId()->toString(),
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
 							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 						],
 					),
@@ -416,7 +448,7 @@ final class Television implements Client
 			}
 
 			$result
-				->then(function (int|bool $value) use ($device, $channel, $property): void {
+				->then(function (int|bool $value) use ($device, $property): void {
 					// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
 					$this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()] = $this->dateTimeFactory->getNow();
 
@@ -424,10 +456,10 @@ final class Television implements Client
 						$this->entityHelper->create(
 							Entities\Messages\StoreChannelPropertyState::class,
 							[
-								'connector' => $device->getConnector()->getId()->toString(),
-								'device' => $device->getId()->toString(),
-								'channel' => $channel->getIdentifier(),
-								'property' => $property->getIdentifier(),
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
+								'channel' => $property->getChannel(),
+								'property' => $property->getId(),
 								'value' => $value,
 							],
 						),
@@ -456,8 +488,8 @@ final class Television implements Client
 							$this->entityHelper->create(
 								Entities\Messages\StoreDeviceConnectionState::class,
 								[
-									'connector' => $device->getConnector()->getId()->toString(),
-									'device' => $device->getId()->toString(),
+									'connector' => $device->getConnector(),
+									'device' => $device->getId(),
 									'state' => MetadataTypes\ConnectionState::STATE_ALERT,
 								],
 							),
@@ -467,8 +499,8 @@ final class Television implements Client
 							$this->entityHelper->create(
 								Entities\Messages\StoreDeviceConnectionState::class,
 								[
-									'connector' => $device->getConnector()->getId()->toString(),
-									'device' => $device->getId()->toString(),
+									'connector' => $device->getConnector(),
+									'device' => $device->getId(),
 									'state' => MetadataTypes\ConnectionState::STATE_DISCONNECTED,
 								],
 							),
@@ -481,14 +513,16 @@ final class Television implements Client
 	}
 
 	/**
+	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
 	 */
-	private function createDeviceClient(Entities\VieraDevice $device): void
+	private function createDeviceClient(MetadataDocuments\DevicesModule\Device $device): void
 	{
 		unset($this->processedChannelsProperties[$device->getId()->toString()]);
 
-		assert(is_string($device->getIpAddress()));
+		assert(is_string($this->deviceHelper->getIpAddress($device)));
 
 		$client = $this->connectionManager->getConnection($device);
 
@@ -500,8 +534,8 @@ final class Television implements Client
 						$this->entityHelper->create(
 							Entities\Messages\StoreChannelPropertyState::class,
 							[
-								'connector' => $device->getConnector()->getId()->toString(),
-								'device' => $device->getId()->toString(),
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
 								'channel' => Types\ChannelType::TELEVISION,
 								'property' => Types\ChannelPropertyIdentifier::STATE,
 								'value' => $event->getScreenState(),
@@ -534,8 +568,8 @@ final class Television implements Client
 					$this->entityHelper->create(
 						Entities\Messages\StoreDeviceConnectionState::class,
 						[
-							'connector' => $device->getConnector()->getId()->toString(),
-							'device' => $device->getId()->toString(),
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
 							'state' => MetadataTypes\ConnectionState::STATE_DISCONNECTED,
 						],
 					),
@@ -546,7 +580,7 @@ final class Television implements Client
 		$this->devicesClients[$device->getId()->toString()] = $client;
 	}
 
-	private function getDeviceClient(Entities\VieraDevice $device): API\TelevisionApi|null
+	private function getDeviceClient(MetadataDocuments\DevicesModule\Device $device): API\TelevisionApi|null
 	{
 		return array_key_exists(
 			$device->getId()->toString(),

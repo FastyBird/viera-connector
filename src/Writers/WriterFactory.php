@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Writers;
 
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 
 /**
  * Device state writer interface factory
@@ -28,6 +28,6 @@ use FastyBird\Connector\Viera\Entities;
 interface WriterFactory
 {
 
-	public function create(Entities\VieraConnector $connector): Writer;
+	public function create(MetadataDocuments\DevicesModule\Connector $connector): Writer;
 
 }

@@ -19,13 +19,11 @@ use DateTimeInterface;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
-use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\DateTimeFactory;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
-use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Library\Metadata\Utilities as MetadataUtilities;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
@@ -43,20 +41,24 @@ use function in_array;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class Periodic implements Writer
+abstract class Periodic implements Writer
 {
 
 	use Nette\SmartObject;
 
-	public const NAME = 'periodic';
-
 	private const HANDLER_START_DELAY = 5.0;
 
-	private const HANDLER_DEBOUNCE_INTERVAL = 500.0;
+	private const HANDLER_DEBOUNCE_INTERVAL = 2_500.0;
 
 	private const HANDLER_PROCESSING_INTERVAL = 0.01;
 
 	private const HANDLER_PENDING_DELAY = 2_000.0;
+
+	/** @var array<string, MetadataDocuments\DevicesModule\Device>  */
+	private array $devices = [];
+
+	/** @var array<string, array<string, MetadataDocuments\DevicesModule\ChannelDynamicProperty>>  */
+	private array $properties = [];
 
 	/** @var array<string> */
 	private array $processedDevices = [];
@@ -66,25 +68,66 @@ class Periodic implements Writer
 
 	private EventLoop\TimerInterface|null $handlerTimer = null;
 
+	/**
+	 * @param DevicesModels\Configuration\Devices\Repository<MetadataDocuments\DevicesModule\Device> $devicesConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Repository<MetadataDocuments\DevicesModule\Channel> $channelsConfigurationRepository
+	 * @param DevicesModels\Configuration\Channels\Properties\Repository<MetadataDocuments\DevicesModule\ChannelDynamicProperty> $channelsPropertiesConfigurationRepository
+	 */
 	public function __construct(
-		private readonly Entities\VieraConnector $connector,
-		private readonly Helpers\Entity $entityHelper,
-		private readonly Queue\Queue $queue,
-		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
-		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		private readonly DevicesUtilities\DeviceConnection $deviceConnectionManager,
-		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStates,
+		protected readonly MetadataDocuments\DevicesModule\Connector $connector,
+		protected readonly Helpers\Entity $entityHelper,
+		protected readonly Queue\Queue $queue,
+		protected readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
+		protected readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
+		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
+		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
 	)
 	{
 	}
 
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 */
 	public function connect(): void
 	{
 		$this->processedDevices = [];
 		$this->processedProperties = [];
+
+		$findDevicesQuery = new DevicesQueries\Configuration\FindDevices();
+		$findDevicesQuery->forConnector($this->connector);
+
+		foreach ($this->devicesConfigurationRepository->findAllBy($findDevicesQuery) as $device) {
+			$this->devices[$device->getId()->toString()] = $device;
+
+			if (!array_key_exists($device->getId()->toString(), $this->properties)) {
+				$this->properties[$device->getId()->toString()] = [];
+			}
+
+			$findChannelsQuery = new DevicesQueries\Configuration\FindChannels();
+			$findChannelsQuery->forDevice($device);
+
+			$channels = $this->channelsConfigurationRepository->findAllBy($findChannelsQuery);
+
+			foreach ($channels as $channel) {
+				$findChannelPropertiesQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
+				$findChannelPropertiesQuery->forChannel($channel);
+
+				$properties = $this->channelsPropertiesConfigurationRepository->findAllBy(
+					$findChannelPropertiesQuery,
+					MetadataDocuments\DevicesModule\ChannelDynamicProperty::class,
+				);
+
+				foreach ($properties as $property) {
+					if ($property->isSettable()) {
+						$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
+					}
+				}
+			}
+		}
 
 		$this->eventLoop->addTimer(
 			self::HANDLER_START_DELAY,
@@ -113,28 +156,14 @@ class Periodic implements Writer
 	 */
 	private function handleCommunication(): void
 	{
-		$findDevicesQuery = new Queries\Entities\FindDevices();
-		$findDevicesQuery->forConnector($this->connector);
-
-		$devices = $this->devicesRepository->findAllBy(
-			$findDevicesQuery,
-			Entities\VieraDevice::class,
-		);
-
-		foreach ($devices as $device) {
+		foreach ($this->devices as $device) {
 			if (!in_array($device->getId()->toString(), $this->processedDevices, true)) {
 				$this->processedDevices[] = $device->getId()->toString();
 
-				if (
-					!$this->deviceConnectionManager->getState($device)->equalsValue(
-						MetadataTypes\ConnectionState::STATE_ALERT,
-					)
-				) {
-					if ($this->writeChannelsProperty($device)) {
-						$this->registerLoopHandler();
+				if ($this->writeChannelsProperty($device)) {
+					$this->registerLoopHandler();
 
-						return;
-					}
+					return;
 				}
 			}
 		}
@@ -152,82 +181,58 @@ class Periodic implements Writer
 	 * @throws MetadataExceptions\InvalidState
 	 * @throws MetadataExceptions\MalformedInput
 	 */
-	private function writeChannelsProperty(Entities\VieraDevice $device): bool
+	private function writeChannelsProperty(MetadataDocuments\DevicesModule\Device $device): bool
 	{
 		$now = $this->dateTimeFactory->getNow();
 
-		$findChannelsQuery = new DevicesQueries\Entities\FindChannels();
-		$findChannelsQuery->forDevice($device);
+		foreach ($this->properties[$device->getId()->toString()] as $property) {
+			$debounce = array_key_exists($property->getId()->toString(), $this->processedProperties)
+				? $this->processedProperties[$property->getId()->toString()]
+				: false;
 
-		$channels = $this->channelsRepository->findAllBy($findChannelsQuery);
+			if (
+				$debounce !== false
+				&& (float) $now->format('Uv') - (float) $debounce->format('Uv') < self::HANDLER_DEBOUNCE_INTERVAL
+			) {
+				continue;
+			}
 
-		foreach ($channels as $channel) {
-			$findChannelPropertiesQuery = new DevicesQueries\Entities\FindChannelDynamicProperties();
-			$findChannelPropertiesQuery->forChannel($channel);
+			$this->processedProperties[$property->getId()->toString()] = $now;
 
-			$properties = $this->channelsPropertiesRepository->findAllBy(
-				$findChannelPropertiesQuery,
-				DevicesEntities\Channels\Properties\Dynamic::class,
-			);
+			$state = $this->channelPropertiesStatesManager->getValue($property);
 
-			foreach ($properties as $property) {
-				$state = $this->channelPropertiesStates->getValue($property);
+			if ($state === null) {
+				continue;
+			}
 
-				if ($state === null) {
-					continue;
-				}
+			$expectedValue = MetadataUtilities\ValueHelper::flattenValue($state->getExpectedValue());
 
-				$expectedValue = MetadataUtilities\ValueHelper::flattenValue($state->getExpectedValue());
+			if ($expectedValue === null) {
+				continue;
+			}
 
-				if (
-					$property->isSettable()
-					&& $expectedValue !== null
-					&& $state->isPending() === true
-				) {
-					$debounce = array_key_exists(
-						$property->getId()->toString(),
-						$this->processedProperties,
-					)
-						? $this->processedProperties[$property->getId()->toString()]
-						: false;
+			$pending = $state->getPending();
 
-					if (
-						$debounce !== false
-						&& (float) $now->format('Uv') - (float) $debounce->format(
-							'Uv',
-						) < self::HANDLER_DEBOUNCE_INTERVAL
-					) {
-						continue;
-					}
+			if (
+				$pending === true
+				|| (
+					$pending instanceof DateTimeInterface
+					&& (float) $now->format('Uv') - (float) $pending->format('Uv') > self::HANDLER_PENDING_DELAY
+				)
+			) {
+				$this->queue->append(
+					$this->entityHelper->create(
+						Entities\Messages\WriteChannelPropertyState::class,
+						[
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
+							'channel' => $property->getChannel(),
+							'property' => $property->getId(),
+						],
+					),
+				);
 
-					unset($this->processedProperties[$property->getId()->toString()]);
-
-					$pending = $state->getPending();
-
-					if (
-						$pending === true
-						|| (
-							$pending instanceof DateTimeInterface
-							&& (float) $now->format('Uv') - (float) $pending->format('Uv') > self::HANDLER_PENDING_DELAY
-						)
-					) {
-						$this->processedProperties[$property->getId()->toString()] = $now;
-
-						$this->queue->append(
-							$this->entityHelper->create(
-								Entities\Messages\WriteChannelPropertyState::class,
-								[
-									'connector' => $this->connector->getId()->toString(),
-									'device' => $device->getId()->toString(),
-									'channel' => $channel->getId()->toString(),
-									'property' => $property->getId()->toString(),
-								],
-							),
-						);
-
-						return true;
-					}
-				}
+				return true;
 			}
 		}
 

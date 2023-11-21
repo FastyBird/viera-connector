@@ -15,6 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Entities\Messages;
 
+use FastyBird\Library\Bootstrap\ObjectMapper as BootstrapObjectMapper;
 use Orisai\ObjectMapper;
 use Ramsey\Uuid;
 use function array_merge;
@@ -33,10 +34,16 @@ final class StoreChannelPropertyState extends Device
 	public function __construct(
 		Uuid\UuidInterface $connector,
 		Uuid\UuidInterface $device,
-		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
-		private readonly string $channel,
-		#[ObjectMapper\Rules\StringValue(notEmpty: true)]
-		private readonly string $property,
+		#[ObjectMapper\Rules\AnyOf([
+			new BootstrapObjectMapper\Rules\UuidValue(),
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+		])]
+		private readonly Uuid\UuidInterface|string $channel,
+		#[ObjectMapper\Rules\AnyOf([
+			new BootstrapObjectMapper\Rules\UuidValue(),
+			new ObjectMapper\Rules\StringValue(notEmpty: true),
+		])]
+		private readonly Uuid\UuidInterface|string $property,
 		#[ObjectMapper\Rules\AnyOf([
 			new ObjectMapper\Rules\BoolValue(),
 			new ObjectMapper\Rules\FloatValue(),
@@ -50,12 +57,12 @@ final class StoreChannelPropertyState extends Device
 		parent::__construct($connector, $device);
 	}
 
-	public function getChannel(): string
+	public function getChannel(): Uuid\UuidInterface|string
 	{
 		return $this->channel;
 	}
 
-	public function getProperty(): string
+	public function getProperty(): Uuid\UuidInterface|string
 	{
 		return $this->property;
 	}
@@ -71,8 +78,8 @@ final class StoreChannelPropertyState extends Device
 	public function toArray(): array
 	{
 		return array_merge(parent::toArray(), [
-			'channel' => $this->getChannel(),
-			'property' => $this->getProperty(),
+			'channel' => $this->getChannel() instanceof Uuid\UuidInterface ? $this->getChannel()->toString() : $this->getChannel(),
+			'property' => $this->getProperty() instanceof Uuid\UuidInterface ? $this->getProperty()->toString() : $this->getProperty(),
 			'value' => $this->getValue(),
 		]);
 	}

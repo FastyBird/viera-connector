@@ -1,0 +1,321 @@
+<?php declare(strict_types = 1);
+
+/**
+ * Device.php
+ *
+ * @license        More in LICENSE.md
+ * @copyright      https://www.fastybird.com
+ * @author         Adam Kadlec <adam.kadlec@fastybird.com>
+ * @package        FastyBird:VieraConnector!
+ * @subpackage     Helpers
+ * @since          1.0.0
+ *
+ * @date           21.11.23
+ */
+
+namespace FastyBird\Connector\Viera\Helpers;
+
+use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Types;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
+use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
+use FastyBird\Module\Devices\Models as DevicesModels;
+use FastyBird\Module\Devices\Queries as DevicesQueries;
+use function assert;
+use function floatval;
+use function is_bool;
+use function is_int;
+use function is_numeric;
+use function is_string;
+
+/**
+ * Device helper
+ *
+ * @package        FastyBird:VieraConnector!
+ * @subpackage     Helpers
+ *
+ * @author         Adam Kadlec <adam.kadlec@fastybird.com>
+ */
+final class Device
+{
+
+	/**
+	 * @param DevicesModels\Configuration\Devices\Properties\Repository<MetadataDocuments\DevicesModule\DeviceVariableProperty> $devicesPropertiesConfigurationRepository
+	 */
+	public function __construct(
+		private readonly DevicesModels\Configuration\Devices\Properties\Repository $devicesPropertiesConfigurationRepository,
+	)
+	{
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getIpAddress(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::IP_ADDRESS);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getPort(MetadataDocuments\DevicesModule\Device $device): int
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::PORT);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return Entities\VieraDevice::DEFAULT_PORT;
+		}
+
+		$value = $property->getValue();
+		assert(is_int($value) || $value === null);
+
+		return $value ?? Entities\VieraDevice::DEFAULT_PORT;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function isEncrypted(MetadataDocuments\DevicesModule\Device $device): bool
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTED);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return false;
+		}
+
+		$value = $property->getValue();
+		assert(is_bool($value) || $value === null);
+
+		return $value ?? false;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getAppId(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getEncryptionKey(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTION_KEY);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getModel(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::MODEL);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getManufacturer(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::MANUFACTURER);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getMacAddress(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::MAC_ADDRESS);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getSerialNumber(MetadataDocuments\DevicesModule\Device $device): string|null
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::SERIAL_NUMBER);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		if ($property === null) {
+			return null;
+		}
+
+		$value = $property->getValue();
+		assert(is_string($value) || $value === null);
+
+		return $value;
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 */
+	public function getStateReadingDelay(MetadataDocuments\DevicesModule\Device $device): float
+	{
+		$findPropertyQuery = new DevicesQueries\Configuration\FindDeviceVariableProperties();
+		$findPropertyQuery->forDevice($device);
+		$findPropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::STATE_READING_DELAY);
+
+		$property = $this->devicesPropertiesConfigurationRepository->findOneBy(
+			$findPropertyQuery,
+			MetadataDocuments\DevicesModule\DeviceVariableProperty::class,
+		);
+
+		$value = $property?->getValue();
+
+		if (!is_numeric($value)) {
+			return Entities\VieraDevice::STATE_READING_DELAY;
+		}
+
+		return floatval($value);
+	}
+
+}
