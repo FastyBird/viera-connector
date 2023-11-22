@@ -15,6 +15,7 @@
 
 namespace FastyBird\Connector\Viera\API;
 
+use DateTimeInterface;
 use Evenement;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
@@ -22,6 +23,7 @@ use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Types;
+use FastyBird\DateTimeFactory;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Fig\Http\Message\RequestMethodInterface;
@@ -106,6 +108,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	private bool $isConnected = false;
 
+	private DateTimeInterface|null $connectedAt = null;
+
 	private string|null $subscriptionId = null;
 
 	private bool $subscriptionCreated = false;
@@ -128,6 +132,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		private readonly EventLoop\LoopInterface $eventLoop,
 		private readonly Helpers\Entity $entityHelper,
 		private readonly Viera\Logger $logger,
+		private readonly DateTimeFactory\Factory $dateTimeFactory,
 	)
 	{
 		$this->isEncrypted = $this->appId !== null && $this->encryptionKey !== null;
@@ -150,6 +155,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		}
 
 		$this->isConnected = true;
+		$this->connectedAt = $this->dateTimeFactory->getNow();
 	}
 
 	/**
@@ -160,12 +166,19 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		$this->session = null;
 		$this->isConnected = false;
 
+		$this->connectedAt = null;
+
 		$this->unsubscribeEvents();
 	}
 
 	public function isConnected(): bool
 	{
-		return $this->isConnected;
+		return $this->isConnected && $this->connectedAt !== null;
+	}
+
+	public function getLastConnectAttempt(): DateTimeInterface|null
+	{
+		return $this->connectedAt;
 	}
 
 	/**

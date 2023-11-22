@@ -57,6 +57,8 @@ final class Television implements Client
 
 	private const HANDLER_PROCESSING_INTERVAL = 0.01;
 
+	private const RECONNECT_COOL_DOWN_TIME = 300.0;
+
 	/** @var array<string, MetadataDocuments\DevicesModule\Device>  */
 	private array $devices = [];
 
@@ -137,8 +139,6 @@ final class Television implements Client
 				continue;
 			}
 
-			$this->devices[$device->getId()->toString()] = $device;
-
 			$findChannelPropertiesQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
 			$findChannelPropertiesQuery->forChannel($channel);
 
@@ -152,6 +152,8 @@ final class Television implements Client
 					$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
 				}
 			}
+
+			$this->devices[$device->getId()->toString()] = $device;
 
 			$this->createDeviceClient($device);
 		}
@@ -235,91 +237,112 @@ final class Television implements Client
 				return false;
 			}
 
-			try {
-				$client->connect(true);
-
-				$this->queue->append(
-					$this->entityHelper->create(
-						Entities\Messages\StoreDeviceConnectionState::class,
-						[
-							'connector' => $device->getConnector(),
-							'device' => $device->getId(),
-							'state' => MetadataTypes\ConnectionState::STATE_CONNECTED,
-						],
-					),
-				);
-
-			} catch (Exceptions\TelevisionApiCall $ex) {
-				$this->logger->error('Calling device api failed', [
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'television-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
-					'connector' => [
-						'id' => $this->connector->getId()->toString(),
-					],
-					'device' => [
-						'id' => $device->getId()->toString(),
-					],
-				]);
-
-				return false;
-			} catch (Exceptions\TelevisionApiError $ex) {
-				$this->queue->append(
-					$this->entityHelper->create(
-						Entities\Messages\StoreDeviceConnectionState::class,
-						[
-							'connector' => $device->getConnector(),
-							'device' => $device->getId(),
-							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
-						],
-					),
-				);
-
-				$this->logger->error('Connection to device could not be created', [
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'television-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
-					'connector' => [
-						'id' => $this->connector->getId()->toString(),
-					],
-					'device' => [
-						'id' => $device->getId()->toString(),
-					],
-				]);
-
-				return false;
-			} catch (Exceptions\InvalidState $ex) {
-				$this->queue->append(
-					$this->entityHelper->create(
-						Entities\Messages\StoreDeviceConnectionState::class,
-						[
-							'connector' => $device->getConnector(),
-							'device' => $device->getId(),
-							'state' => MetadataTypes\ConnectionState::STATE_ALERT,
-						],
-					),
-				);
-
+			if (
+				$client->getLastConnectAttempt() === null
+				|| (
+					// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
+					$this->dateTimeFactory->getNow()->getTimestamp() - $client->getLastConnectAttempt()->getTimestamp() >= self::RECONNECT_COOL_DOWN_TIME
+				)
+			) {
 				try {
-					$this->getDeviceClient($device)?->disconnect();
-				} catch (Throwable) {
-					// Just ignore
+					$client->connect(true);
+
+					$this->queue->append(
+						$this->entityHelper->create(
+							Entities\Messages\StoreDeviceConnectionState::class,
+							[
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
+								'state' => MetadataTypes\ConnectionState::STATE_CONNECTED,
+							],
+						),
+					);
+
+				} catch (Exceptions\TelevisionApiCall $ex) {
+					$this->logger->error('Calling device api failed', [
+						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'type' => 'television-client',
+						'exception' => BootstrapHelpers\Logger::buildException($ex),
+						'connector' => [
+							'id' => $this->connector->getId()->toString(),
+						],
+						'device' => [
+							'id' => $device->getId()->toString(),
+						],
+					]);
+
+					return false;
+				} catch (Exceptions\TelevisionApiError $ex) {
+					$this->queue->append(
+						$this->entityHelper->create(
+							Entities\Messages\StoreDeviceConnectionState::class,
+							[
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
+								'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+							],
+						),
+					);
+
+					$this->logger->error('Connection to device could not be created', [
+						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'type' => 'television-client',
+						'exception' => BootstrapHelpers\Logger::buildException($ex),
+						'connector' => [
+							'id' => $this->connector->getId()->toString(),
+						],
+						'device' => [
+							'id' => $device->getId()->toString(),
+						],
+					]);
+
+					return false;
+				} catch (Exceptions\InvalidState $ex) {
+					$this->queue->append(
+						$this->entityHelper->create(
+							Entities\Messages\StoreDeviceConnectionState::class,
+							[
+								'connector' => $device->getConnector(),
+								'device' => $device->getId(),
+								'state' => MetadataTypes\ConnectionState::STATE_ALERT,
+							],
+						),
+					);
+
+					try {
+						$this->getDeviceClient($device)?->disconnect();
+					} catch (Throwable) {
+						// Just ignore
+					}
+
+					$this->logger->error('Device is in invalid state and could not be handled', [
+						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'type' => 'television-client',
+						'exception' => BootstrapHelpers\Logger::buildException($ex),
+						'connector' => [
+							'id' => $this->connector->getId()->toString(),
+						],
+						'device' => [
+							'id' => $device->getId()->toString(),
+						],
+					]);
+
+					return false;
 				}
-
-				$this->logger->error('Device is in invalid state and could not be handled', [
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'television-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
-					'connector' => [
-						'id' => $this->connector->getId()->toString(),
-					],
-					'device' => [
-						'id' => $device->getId()->toString(),
-					],
-				]);
-
-				return false;
+			} else {
+				$this->queue->append(
+					$this->entityHelper->create(
+						Entities\Messages\StoreDeviceConnectionState::class,
+						[
+							'connector' => $device->getConnector(),
+							'device' => $device->getId(),
+							'state' => MetadataTypes\ConnectionState::STATE_DISCONNECTED,
+						],
+					),
+				);
 			}
+
+			return false;
 		}
 
 		foreach ($this->properties[$device->getId()->toString()] as $property) {
