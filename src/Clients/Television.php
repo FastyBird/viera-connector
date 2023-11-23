@@ -488,7 +488,7 @@ final class Television implements Client
 						),
 					);
 				})
-				->otherwise(function (Throwable $ex) use ($device, $property): void {
+				->catch(function (Throwable $ex) use ($device, $property): void {
 					$this->processedChannelsProperties[$device->getId()->toString()][$property->getId()->toString()] = false;
 
 					$this->logger->warning(

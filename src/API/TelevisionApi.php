@@ -182,7 +182,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\Session)
+	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\Session> : Entities\API\Session)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -190,7 +190,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 */
 	public function requestSessionId(
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Entities\API\Session
+	): Promise\PromiseInterface|Entities\API\Session
 	{
 		$deferred = new Promise\Deferred();
 
@@ -245,7 +245,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(function (Message\ResponseInterface $response) use ($deferred, $request): void {
 					$deferred->resolve($this->parseRequestSessionId($request, $response));
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -256,14 +256,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\DeviceSpecs)
+	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\DeviceSpecs> : Entities\API\DeviceSpecs)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getSpecs(
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Entities\API\DeviceSpecs
+	): Promise\PromiseInterface|Entities\API\DeviceSpecs
 	{
 		$deferred = new Promise\Deferred();
 
@@ -285,11 +285,11 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 							$deferred->resolve($device);
 						})
-						->otherwise(static function (Throwable $ex) use ($deferred): void {
+						->catch(static function (Throwable $ex) use ($deferred): void {
 							$deferred->reject($ex);
 						});
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -304,7 +304,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\DeviceApps)
+	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\DeviceApps> : Entities\API\DeviceApps)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -312,7 +312,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 */
 	public function getApps(
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Entities\API\DeviceApps
+	): Promise\PromiseInterface|Entities\API\DeviceApps
 	{
 		$deferred = new Promise\Deferred();
 
@@ -357,7 +357,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(function (Message\ResponseInterface $response) use ($deferred, $request): void {
 					$deferred->resolve($this->parseGetApps($request, $response));
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -368,7 +368,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\DeviceVectorInfo)
+	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\DeviceVectorInfo> : Entities\API\DeviceVectorInfo)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -376,7 +376,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 */
 	public function getVectorInfo(
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Entities\API\DeviceVectorInfo
+	): Promise\PromiseInterface|Entities\API\DeviceVectorInfo
 	{
 		$deferred = new Promise\Deferred();
 
@@ -421,7 +421,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(function (Message\ResponseInterface $response) use ($deferred, $request): void {
 					$deferred->resolve($this->parseGetVectorInfo($request, $response));
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -432,15 +432,13 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : int)
+	 * @return ($async is true ? Promise\PromiseInterface<int> : int)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
 	 */
-	public function getVolume(
-		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|int
+	public function getVolume(bool $async = true): Promise\PromiseInterface|int
 	{
 		$deferred = new Promise\Deferred();
 
@@ -485,7 +483,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(function (Message\ResponseInterface $response) use ($deferred, $request): void {
 					$deferred->resolve($this->parseGetVolume($request, $response));
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -496,7 +494,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
@@ -506,7 +504,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	public function setVolume(
 		int $volume,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -564,7 +562,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(static function () use ($deferred): void {
 					$deferred->resolve(true);
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -575,15 +573,13 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
 	 */
-	public function getMute(
-		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	public function getMute(bool $async = true): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -628,7 +624,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(function (Message\ResponseInterface $response) use ($deferred, $request): void {
 					$deferred->resolve($this->parseGetMute($request, $response));
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -639,7 +635,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -648,7 +644,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	public function setMute(
 		bool $status,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -696,7 +692,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(static function () use ($deferred): void {
 					$deferred->resolve(true);
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -707,7 +703,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -716,7 +712,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	public function sendKey(
 		Types\ActionKey|string $key,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -761,7 +757,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(static function () use ($deferred): void {
 					$deferred->resolve(true);
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -772,7 +768,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -781,7 +777,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	public function launchApplication(
 		string $application,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -830,7 +826,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(static function () use ($deferred): void {
 					$deferred->resolve(true);
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -840,7 +836,10 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		return true;
 	}
 
-	public function turnOn(): Promise\ExtendedPromiseInterface|Promise\PromiseInterface
+	/**
+	 * @return Promise\PromiseInterface<bool>
+	 */
+	public function turnOn(): Promise\PromiseInterface
 	{
 		$deferred = new Promise\Deferred();
 
@@ -855,7 +854,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 								->then(static function () use ($deferred): void {
 									$deferred->resolve(true);
 								})
-								->otherwise(static function (Throwable $ex) use ($deferred): void {
+								->catch(static function (Throwable $ex) use ($deferred): void {
 									$deferred->reject($ex);
 								});
 
@@ -864,13 +863,13 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 								->then(static function () use ($deferred): void {
 									$deferred->resolve(true);
 								})
-								->otherwise(static function (Throwable $ex) use ($deferred): void {
+								->catch(static function (Throwable $ex) use ($deferred): void {
 									$deferred->reject($ex);
 								});
 						}
 					}
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -880,7 +879,10 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		}
 	}
 
-	public function turnOff(): Promise\ExtendedPromiseInterface|Promise\PromiseInterface
+	/**
+	 * @return Promise\PromiseInterface<bool>
+	 */
+	public function turnOff(): Promise\PromiseInterface
 	{
 		$deferred = new Promise\Deferred();
 
@@ -894,12 +896,12 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 							->then(static function () use ($deferred): void {
 								$deferred->resolve(true);
 							})
-							->otherwise(static function (Throwable $ex) use ($deferred): void {
+							->catch(static function (Throwable $ex) use ($deferred): void {
 								$deferred->reject($ex);
 							});
 					}
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -910,14 +912,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function needsCrypto(
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -939,7 +941,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 						$deferred->reject($ex);
 					}
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -950,14 +952,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($runLoop is false ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($runLoop is false ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws InvalidArgumentException
 	 */
 	public function livenessProbe(
 		float $timeout = 1.5,
 		bool $runLoop = false,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	): Promise\PromiseInterface|bool
 	{
 		$deferred = new Promise\Deferred();
 
@@ -985,7 +987,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 					$this->eventLoop->stop();
 				}
 			})
-				->otherwise(function () use ($deferred, $runLoop, &$result): void {
+				->catch(function () use ($deferred, $runLoop, &$result): void {
 					$deferred->resolve(false);
 					$result = false;
 
@@ -1004,11 +1006,11 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($runLoop is false ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : bool)
+	 * @return ($runLoop is false ? Promise\PromiseInterface<bool> : bool)
 	 *
 	 * @throws Exceptions\TelevisionApiError
 	 */
-	public function isTurnedOn(bool $runLoop = false): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|bool
+	public function isTurnedOn(bool $runLoop = false): Promise\PromiseInterface|bool
 	{
 		if ($this->subscriptionCreated && $this->screenState !== null) {
 			if ($runLoop) {
@@ -1084,7 +1086,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\RequestPinCode)
+	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\RequestPinCode> : Entities\API\RequestPinCode)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
@@ -1092,7 +1094,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	public function requestPinCode(
 		string $name,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Entities\API\RequestPinCode
+	): Promise\PromiseInterface|Entities\API\RequestPinCode
 	{
 		$deferred = new Promise\Deferred();
 
@@ -1132,7 +1134,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				->then(function (Message\ResponseInterface $response) use ($deferred, $request): void {
 					$deferred->resolve($this->parseRequestPinCode($request, $response));
 				})
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -1143,7 +1145,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Entities\API\AuthorizePinCode)
+	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\AuthorizePinCode> : Entities\API\AuthorizePinCode)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
@@ -1152,7 +1154,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		string $pinCode,
 		string $challengeKey,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Entities\API\AuthorizePinCode
+	): Promise\PromiseInterface|Entities\API\AuthorizePinCode
 	{
 		$deferred = new Promise\Deferred();
 
@@ -1268,7 +1270,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 						$deferred->resolve($this->parseAuthorizePinCode($request, $response, $key, $iv, $hmacKey));
 					},
 				)
-				->otherwise(static function (Throwable $ex) use ($deferred): void {
+				->catch(static function (Throwable $ex) use ($deferred): void {
 					$deferred->reject($ex);
 				});
 
@@ -1278,7 +1280,10 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		return $this->parseAuthorizePinCode($request, $result, $key, $iv, $hmacKey);
 	}
 
-	public function wakeOnLan(): Promise\ExtendedPromiseInterface|Promise\PromiseInterface
+	/**
+	 * @return Promise\PromiseInterface<bool>
+	 */
+	public function wakeOnLan(): Promise\PromiseInterface
 	{
 		$deferred = new Promise\Deferred();
 
@@ -1320,7 +1325,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 				$deferred->resolve(true);
 			})
-			->otherwise(static function (Throwable $ex) use ($deferred): void {
+			->catch(static function (Throwable $ex) use ($deferred): void {
 				$deferred->reject($ex);
 			});
 
@@ -2018,14 +2023,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Message\ResponseInterface)
+	 * @return ($async is true ? Promise\PromiseInterface<Message\ResponseInterface> : Message\ResponseInterface)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 */
 	private function callRequest(
 		Request $request,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Message\ResponseInterface
+	): Promise\PromiseInterface|Message\ResponseInterface
 	{
 		$deferred = new Promise\Deferred();
 
@@ -2161,14 +2166,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\ExtendedPromiseInterface|Promise\PromiseInterface : Message\ResponseInterface)
+	 * @return ($async is true ? Promise\PromiseInterface<Message\ResponseInterface> : Message\ResponseInterface)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 */
 	private function callXmlRequest(
 		Request $request,
 		bool $async = true,
-	): Promise\ExtendedPromiseInterface|Promise\PromiseInterface|Message\ResponseInterface
+	): Promise\PromiseInterface|Message\ResponseInterface
 	{
 		$deferred = new Promise\Deferred();
 
