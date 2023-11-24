@@ -34,7 +34,6 @@ use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
-use InvalidArgumentException as InvalidArgumentExceptionAlias;
 use Nette\Localization;
 use Nette\Utils;
 use RuntimeException;
@@ -114,7 +113,6 @@ class Devices extends Console\Command\Command
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
-	 * @throws InvalidArgumentExceptionAlias
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 * @throws RuntimeException
@@ -192,7 +190,7 @@ class Devices extends Console\Command\Command
 
 		try {
 			$isOnline = $televisionApi->livenessProbe(1.5, true);
-		} catch (Exceptions\InvalidState | InvalidArgumentExceptionAlias $ex) {
+		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 			);
@@ -264,7 +262,24 @@ class Devices extends Console\Command\Command
 
 		$authorization = null;
 
-		$isTurnedOn = $televisionApi->isTurnedOn(true);
+		try {
+			$isTurnedOn = $televisionApi->isTurnedOn(true);
+		} catch (Exceptions\TelevisionApiError $ex) {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.devices.messages.device.checkStatusFailed'),
+			);
+
+			$this->logger->error(
+				'Checking screen status failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'devices-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
+		}
 
 		if ($specs->isRequiresEncryption()) {
 			$io->warning(
@@ -288,13 +303,13 @@ class Devices extends Console\Command\Command
 				}
 			}
 
-			$this->challengeKey = $televisionApi
-				->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
-				->getChallengeKey();
-
-			$authorization = $this->askPinCode($io, $connector, $televisionApi);
-
 			try {
+				$this->challengeKey = $televisionApi
+					->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
+					->getChallengeKey();
+
+				$authorization = $this->askPinCode($io, $connector, $televisionApi);
+
 				$televisionApi = $this->televisionApiFactory->create(
 					$tempIdentifier,
 					$ipAddress,
@@ -309,7 +324,7 @@ class Devices extends Console\Command\Command
 				);
 
 				$this->logger->error(
-					'Re-creating api client failed',
+					'Pin code pairing failed',
 					[
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 						'type' => 'devices-cmd',
@@ -321,7 +336,24 @@ class Devices extends Console\Command\Command
 			}
 		}
 
-		$apps = $isTurnedOn ? $televisionApi->getApps(false) : null;
+		try {
+			$apps = $isTurnedOn ? $televisionApi->getApps(false) : null;
+		} catch (Exceptions\TelevisionApiError | Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingAppsFailed'),
+			);
+
+			$this->logger->error(
+				'Loading apps failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'devices-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
+		}
 
 		$hdmi = [];
 
@@ -836,7 +868,7 @@ class Devices extends Console\Command\Command
 
 		try {
 			$isOnline = $televisionApi->livenessProbe(1.5, true);
-		} catch (Exceptions\InvalidState | InvalidArgumentExceptionAlias $ex) {
+		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
 				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
 			);
@@ -906,64 +938,106 @@ class Devices extends Console\Command\Command
 			return;
 		}
 
-		$isTurnedOn = $televisionApi->isTurnedOn(true);
-
-		if (!$device->isEncrypted() && $specs->isRequiresEncryption()) {
-			$io->warning(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.needPairing'),
+		try {
+			$isTurnedOn = $televisionApi->isTurnedOn(true);
+		} catch (Exceptions\TelevisionApiError $ex) {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.devices.messages.device.checkStatusFailed'),
 			);
 
-			if ($isTurnedOn === false) {
+			$this->logger->error(
+				'Checking screen status failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'devices-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
+		}
+
+		if (!$specs->isRequiresEncryption()) {
+			$authorization = false;
+		} else {
+			if (
+				!$device->isEncrypted()
+				|| $device->getAppId() === null
+				|| $device->getEncryptionKey() === null
+			) {
 				$io->warning(
-					$this->translator->translate('//viera-connector.cmd.devices.messages.device.offline'),
+					$this->translator->translate('//viera-connector.cmd.devices.messages.device.needPairing'),
 				);
 
-				$question = new Console\Question\ConfirmationQuestion(
-					$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
-					false,
-				);
+				if ($isTurnedOn === false) {
+					$io->warning(
+						$this->translator->translate('//viera-connector.cmd.devices.messages.device.offline'),
+					);
 
-				$continue = (bool) $io->askQuestion($question);
+					$question = new Console\Question\ConfirmationQuestion(
+						$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
+						false,
+					);
 
-				if (!$continue) {
+					$continue = (bool) $io->askQuestion($question);
+
+					if (!$continue) {
+						return;
+					}
+				}
+
+				try {
+					$this->challengeKey = $televisionApi
+						->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
+						->getChallengeKey();
+
+					$authorization = $this->askPinCode($io, $connector, $televisionApi);
+
+					$televisionApi = $this->televisionApiFactory->create(
+						$device->getIdentifier(),
+						$ipAddress,
+						$port,
+						$authorization->getAppId(),
+						$authorization->getEncryptionKey(),
+					);
+					$televisionApi->connect();
+				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
+					$io->error(
+						$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+					);
+
+					$this->logger->error(
+						'Pin code pairing failed',
+						[
+							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'type' => 'devices-cmd',
+							'exception' => BootstrapHelpers\Logger::buildException($ex),
+						],
+					);
+
 					return;
 				}
 			}
-
-			$this->challengeKey = $televisionApi
-				->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
-				->getChallengeKey();
-
-			$authorization = $this->askPinCode($io, $connector, $televisionApi);
-
-			try {
-				$televisionApi = $this->televisionApiFactory->create(
-					$device->getIdentifier(),
-					$ipAddress,
-					$port,
-					$authorization->getAppId(),
-					$authorization->getEncryptionKey(),
-				);
-				$televisionApi->connect();
-			} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
-				$io->error(
-					$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
-				);
-
-				$this->logger->error(
-					'Re-creating api client failed',
-					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'devices-cmd',
-						'exception' => BootstrapHelpers\Logger::buildException($ex),
-					],
-				);
-
-				return;
-			}
 		}
 
-		$apps = $isTurnedOn ? $televisionApi->getApps(false) : null;
+		try {
+			$apps = $isTurnedOn ? $televisionApi->getApps(false) : null;
+		} catch (Exceptions\TelevisionApiError | Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingAppsFailed'),
+			);
+
+			$this->logger->error(
+				'Loading apps failed',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'devices-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			return;
+		}
 
 		try {
 			// Start transaction connection to the database
@@ -1004,7 +1078,7 @@ class Devices extends Console\Command\Command
 				]));
 			}
 
-			if ($appIdProperty === null && $authorization !== null) {
+			if ($appIdProperty === null && $authorization !== null && $authorization !== false) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::APP_ID,
@@ -1013,15 +1087,15 @@ class Devices extends Console\Command\Command
 					'value' => $authorization->getAppId(),
 					'device' => $device,
 				]));
-			} elseif ($appIdProperty !== null && $authorization !== null) {
+			} elseif ($appIdProperty !== null && $authorization !== null && $authorization !== false) {
 				$this->devicesPropertiesManager->update($appIdProperty, Utils\ArrayHash::from([
 					'value' => $authorization->getAppId(),
 				]));
-			} elseif ($appIdProperty !== null && $authorization === null) {
+			} elseif ($appIdProperty !== null && $authorization === false) {
 				$this->devicesPropertiesManager->delete($appIdProperty);
 			}
 
-			if ($encryptionKeyProperty === null && $authorization !== null) {
+			if ($encryptionKeyProperty === null && $authorization !== null && $authorization !== false) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
 					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
@@ -1030,11 +1104,11 @@ class Devices extends Console\Command\Command
 					'value' => $authorization->getEncryptionKey(),
 					'device' => $device,
 				]));
-			} elseif ($encryptionKeyProperty !== null && $authorization !== null) {
+			} elseif ($encryptionKeyProperty !== null && $authorization !== null && $authorization !== false) {
 				$this->devicesPropertiesManager->update($encryptionKeyProperty, Utils\ArrayHash::from([
 					'value' => $authorization->getEncryptionKey(),
 				]));
-			} elseif ($encryptionKeyProperty !== null && $authorization === null) {
+			} elseif ($encryptionKeyProperty !== null && $authorization === false) {
 				$this->devicesPropertiesManager->delete($encryptionKeyProperty);
 			}
 
@@ -1382,7 +1456,7 @@ class Devices extends Console\Command\Command
 	): Entities\API\AuthorizePinCode
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.discovery.questions.provide.pinCode'),
+			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.pinCode'),
 		);
 		$question->setValidator(
 			function (string|null $answer) use ($connector, $televisionApi): Entities\API\AuthorizePinCode {
@@ -1421,7 +1495,7 @@ class Devices extends Console\Command\Command
 	private function askHdmiName(Style\SymfonyStyle $io): string
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.discovery.questions.provide.hdmiName'),
+			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.hdmiName'),
 		);
 		$question->setValidator(function (string|null $answer): string {
 			if ($answer !== null) {
@@ -1442,7 +1516,7 @@ class Devices extends Console\Command\Command
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate(
-				'//viera-connector.cmd.discovery.questions.provide.hdmiNumber',
+				'//viera-connector.cmd.devices.questions.provide.hdmiNumber',
 				['name' => $name],
 			),
 		);

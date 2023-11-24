@@ -22,7 +22,6 @@ use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Types;
-use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -70,8 +69,6 @@ final class StoreDevice implements Queue\Consumer
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws DevicesExceptions\Runtime
-	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
 	 */
 	public function consume(Entities\Messages\Entity $entity): bool
 	{
@@ -121,29 +118,6 @@ final class StoreDevice implements Queue\Consumer
 						'id' => $device->getId()->toString(),
 						'identifier' => $entity->getIdentifier(),
 						'address' => $entity->getIpAddress(),
-					],
-					'data' => $entity->toArray(),
-				],
-			);
-		} else {
-			$device = $this->databaseHelper->transaction(
-				function () use ($entity, $device): Entities\VieraDevice {
-					$device = $this->devicesManager->update($device, Utils\ArrayHash::from([
-						'name' => $entity->getName(),
-					]));
-					assert($device instanceof Entities\VieraDevice);
-
-					return $device;
-				},
-			);
-
-			$this->logger->debug(
-				'Device was updated',
-				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'store-device-message-consumer',
-					'device' => [
-						'id' => $device->getId()->toString(),
 					],
 					'data' => $entity->toArray(),
 				],

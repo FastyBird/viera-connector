@@ -200,7 +200,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 
 			try {
 				$isOnline = await($televisionApi->livenessProbe());
-			} catch (Throwable $ex) {
+			} catch (Exceptions\TelevisionApiError $ex) {
 				$this->logger->error(
 					'Checking TV status failed',
 					[
@@ -305,13 +305,15 @@ final class Discovery implements Evenement\EventEmitterInterface
 					'manufacturer' => $specs->getManufacturer(),
 					'serial_number' => $specs->getSerialNumber(),
 					'encrypted' => $needsAuthorization,
-					'applications' => $apps !== null ? array_map(
-						static fn (Entities\API\Application $application): array => [
-							'id' => $application->getId(),
-							'name' => $application->getName(),
-						],
-						$apps->getApps(),
-					) : [],
+					'applications' => $apps !== null
+						? array_map(
+							static fn (Entities\API\Application $application): array => [
+								'id' => $application->getId(),
+								'name' => $application->getName(),
+							],
+							$apps->getApps(),
+						)
+						: [],
 				],
 			),
 		);

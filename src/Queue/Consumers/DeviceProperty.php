@@ -19,7 +19,6 @@ use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Queries;
-use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -54,8 +53,6 @@ trait DeviceProperty
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws DevicesExceptions\Runtime
-	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
 	 */
 	private function setDeviceProperty(
 		string $type,
@@ -65,6 +62,8 @@ trait DeviceProperty
 		string $identifier,
 		string|null $name = null,
 		array|string|null $format = null,
+		bool $settable = false,
+		bool $queryable = false,
 	): void
 	{
 		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
@@ -83,46 +82,29 @@ trait DeviceProperty
 			return;
 		}
 
-		if ($value === null) {
+		if ($value === null && $type === DevicesEntities\Devices\Properties\Variable::class) {
 			return;
 		}
 
-		if (
-			$property instanceof DevicesEntities\Devices\Properties\Variable
-			&& $property->getValue() === $value
-		) {
-			return;
-		}
+		if ($property !== null && !$property instanceof $type) {
+			$this->databaseHelper->transaction(function () use ($property): void {
+				$this->devicesPropertiesManager->delete($property);
+			});
 
-		if (
-			$property !== null
-			&& !$property instanceof DevicesEntities\Devices\Properties\Variable
-		) {
-			$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
-			$findDevicePropertyQuery->byId($property->getId());
-
-			$property = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
-
-			if ($property !== null) {
-				$this->databaseHelper->transaction(function () use ($property): void {
-					$this->devicesPropertiesManager->delete($property);
-				});
-
-				$this->logger->warning(
-					'Stored device property was not of valid type',
-					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'message-consumer',
-						'device' => [
-							'id' => $deviceId->toString(),
-						],
-						'property' => [
-							'id' => $property->getId()->toString(),
-							'identifier' => $identifier,
-						],
+			$this->logger->warning(
+				'Stored device property was not of valid type',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'message-consumer',
+					'device' => [
+						'id' => $deviceId->toString(),
 					],
-				);
-			}
+					'property' => [
+						'id' => $property->getId()->toString(),
+						'identifier' => $identifier,
+					],
+				],
+			);
 
 			$property = null;
 		}
@@ -137,6 +119,20 @@ trait DeviceProperty
 			);
 
 			if ($device === null) {
+				$this->logger->error(
+					'Device was not found, property could not be configured',
+					[
+						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'type' => 'message-consumer',
+						'device' => [
+							'id' => $deviceId->toString(),
+						],
+						'property' => [
+							'identifier' => $identifier,
+						],
+					],
+				);
+
 				return;
 			}
 
@@ -144,7 +140,7 @@ trait DeviceProperty
 				fn (): DevicesEntities\Devices\Properties\Property => $this->devicesPropertiesManager->create(
 					Utils\ArrayHash::from(array_merge(
 						[
-							'entity' => DevicesEntities\Devices\Properties\Variable::class,
+							'entity' => $type,
 							'device' => $device,
 							'identifier' => $identifier,
 							'name' => $name,
@@ -155,7 +151,10 @@ trait DeviceProperty
 							? [
 								'value' => $value,
 							]
-							: [],
+							: [
+								'settable' => $settable,
+								'queryable' => $queryable,
+							],
 					)),
 				),
 			);
@@ -179,11 +178,20 @@ trait DeviceProperty
 			$property = $this->databaseHelper->transaction(
 				fn (): DevicesEntities\Devices\Properties\Property => $this->devicesPropertiesManager->update(
 					$property,
-					Utils\ArrayHash::from([
-						'dataType' => $dataType,
-						'format' => $format,
-						'value' => $value,
-					]),
+					Utils\ArrayHash::from(array_merge(
+						[
+							'dataType' => $dataType,
+							'format' => $format,
+						],
+						$type === DevicesEntities\Devices\Properties\Variable::class
+							? [
+								'value' => $value,
+							]
+							: [
+								'settable' => $settable,
+								'queryable' => $queryable,
+							],
+					)),
 				),
 			);
 

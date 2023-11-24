@@ -115,8 +115,10 @@ cmd:
                 connectionFailed: "Connection with your television could not be established. Television could not be created. An error was logged."
                 unreachable: "The provided IP: \"%address%\" address is unreachable."
                 loadingSpecsFailed: "Reading television specification failed. Television could not be created. An error was logged."
+                loadingAppsFailed: "Reading television applications failed. Television could not be created. An error was logged."
                 offline: "It looks like your television is not turned on. It is possible that the pairing could not be finished."
                 needPairing: "It looks like your TV require application pairing."
+                checkStatusFailed: "Reading television status failed. Television could not be created. An error was logged."
             info:
                 hdmi: "Now you have to provide name for configured HDMI input and its number. HDMI number is related to you television."
                 macAddress: "MAC address will be used to turn on you television on."

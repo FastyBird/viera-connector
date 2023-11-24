@@ -538,9 +538,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			55_000,
 		);
 
-		$result = $televisionApi->setVolume(30, false);
-
-		self::assertTrue($result);
+		$televisionApi->setVolume(30, false);
 	}
 
 	/**
@@ -726,9 +724,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			55_000,
 		);
 
-		$result = $televisionApi->setMute(true, false);
-
-		self::assertTrue($result);
+		$televisionApi->setMute(true, false);
 	}
 
 	/**
@@ -820,9 +816,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			55_000,
 		);
 
-		$result = $televisionApi->sendKey('NRC_HDMI1-ONOFF', false);
-
-		self::assertTrue($result);
+		$televisionApi->sendKey('NRC_HDMI1-ONOFF', false);
 	}
 
 	/**
@@ -914,9 +908,7 @@ final class TelevisionApiTest extends Tests\Cases\Unit\DbTestCase
 			55_000,
 		);
 
-		$result = $televisionApi->launchApplication('0010000200000001', false);
-
-		self::assertTrue($result);
+		$televisionApi->launchApplication('0010000200000001', false);
 	}
 
 }

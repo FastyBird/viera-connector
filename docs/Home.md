@@ -1,3 +1,7 @@
+<p align="center">
+	<img src="https://github.com/fastybird/.github/blob/main/assets/repo_title.png?raw=true" alt="FastyBird"/>
+</p>
+
 The [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) Viera Connector is an extension for the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem that enables seamless integration
 with Panasonic Viera televisions. It allows users to easily connect and control Panasonic televisions from within the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem,
 providing a simple and user-friendly interface for managing and monitoring your televisions.
@@ -45,10 +49,12 @@ Viera connector - initialization
 You will then be prompted to choose an action:
 
 ```shell
- What would you like to do?:
+ What would you like to do? [Nothing]:
   [0] Create new connector configuration
   [1] Edit existing connector configuration
   [2] Delete existing connector configuration
+  [3] List Viera connectors
+  [4] Nothing
  > 0
 ```
 
@@ -75,7 +81,7 @@ After providing the necessary information, your new Panasonic Viera connector wi
 You can also configure the Panasonic Viera connector using the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) user interface. For more information on how to do this,
 please refer to the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) documentation.
 
-## TV setup
+# TV setup
 
 Before you could pair your television with connector, you have to prepare your television.
 
@@ -89,7 +95,7 @@ Then, go to `Menu -> Network -> Network Status -> Status Details` and take note 
 
 # Devices Discovery
 
-The Panasonic Viera connector includes a built-in feature for automatic device discovery. This feature can be triggered manually
+The Panasonic Viera connector includes a built-in feature for automatic televisions discovery. This feature can be triggered manually
 through a console command or from the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) user interface.
 
 ## Manual Console Command
@@ -148,7 +154,7 @@ a list of found devices will be displayed.
 
 Now that all newly discovered devices have been found, they are available in the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) system and can be utilized.
 
-If some televisions require PIN code authentication you will be prompted if you want to pair these televisions. If you do not finish this pairing you will be not able to fully control this televisions.
+If some televisions require PIN code authentication you will be prompted if you want to pair these televisions. If you do not finish this pairing you will not be able to fully control this televisions.
 
 ```shell
  [INFO] Pairing television: 65FX700_Series
@@ -204,10 +210,12 @@ You will then be prompted to select connector to manage devices.
 You will then be prompted to select device management action.
 
 ```shell
- What would you like to do?:
-  [0] Create new connector device
-  [1] Edit existing connector device
-  [2] Delete existing connector device
+ What would you like to do? [Nothing]:
+  [0] Create new television
+  [1] Edit existing television
+  [2] Delete existing television
+  [3] List televisions
+  [4] Nothing
  > 0
 ```
 
@@ -252,6 +260,7 @@ You could configure all or only some HDMI inputs.
 
 > **NOTE:**
 MAC address will be used for Wake on Lan action which will turn you television on.
+Some older models does not support to turn on action, therefore MAC address have to be configured
 
 ```shell
  Provide television MAC address in format: 01:23:45:67:89:ab:

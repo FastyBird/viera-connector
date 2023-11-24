@@ -569,7 +569,7 @@ class Discovery extends Console\Command\Command
 
 				$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
 				$findDevicePropertyQuery->forDevice($device);
-				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
+				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTION_KEY);
 
 				$encryptionKeyProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 

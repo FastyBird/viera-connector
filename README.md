@@ -1,13 +1,17 @@
+<p align="center">
+	<img src="https://github.com/fastybird/.github/blob/main/assets/repo_title.png?raw=true" alt="FastyBird"/>
+</p>
+
 # FastyBird IoT Panasonic Viera connector
 
-[![Build Status](https://badgen.net/github/checks/FastyBird/viera-connector/main?cache=300&style=flast-square)](https://github.com/FastyBird/viera-connector/actions)
-[![Licence](https://badgen.net/github/license/FastyBird/viera-connector?cache=300&style=flast-square)](https://github.com/FastyBird/viera-connector/blob/main/LICENSE.md)
-[![Code coverage](https://badgen.net/coveralls/c/github/FastyBird/viera-connector?cache=300&style=flast-square)](https://coveralls.io/r/FastyBird/viera-connector)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/FastyBird/viera-connector/ci.yaml?style=flat-square)](https://github.com/FastyBird/viera-connector/actions)
+[![Licence](https://img.shields.io/github/license/FastyBird/viera-connector?style=flat-square)](https://github.com/FastyBird/viera-connector/blob/main/LICENSE.md)
+[![Code coverage](https://img.shields.io/coverallsCoverage/github/FastyBird/viera-connector?style=flat-square)](https://coveralls.io/r/FastyBird/viera-connector)
 [![Mutation testing](https://img.shields.io/endpoint?style=flat-square&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2FFastyBird%2Fviera-connector%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/FastyBird/viera-connector/main)
 
-![PHP](https://badgen.net/packagist/php/FastyBird/viera-connector?cache=300&style=flast-square)
-[![Latest stable](https://badgen.net/packagist/v/FastyBird/viera-connector/latest?cache=300&style=flast-square)](https://packagist.org/packages/FastyBird/viera-connector)
-[![Downloads total](https://badgen.net/packagist/dt/FastyBird/viera-connector?cache=300&style=flast-square)](https://packagist.org/packages/FastyBird/viera-connector)
+![PHP](https://badgen.net/packagist/php/FastyBird/viera-connector?cache=300&style=flat-square)
+[![Latest stable](https://badgen.net/packagist/v/FastyBird/viera-connector/latest?cache=300&style=flat-square)](https://packagist.org/packages/FastyBird/viera-connector)
+[![Downloads total](https://badgen.net/packagist/dt/FastyBird/viera-connector?cache=300&style=flat-square)](https://packagist.org/packages/FastyBird/viera-connector)
 [![PHPStan](https://img.shields.io/badge/PHPStan-enabled-brightgreen.svg?style=flat-square)](https://github.com/phpstan/phpstan)
 
 ***
@@ -17,17 +21,17 @@
 Panasonic Viera connector is extension for [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem
 which is integrating [Panasonic Viera](https://www.panasonic.com) televisions.
 
-Panasonic Viera Connector is a distributed extension that is developed in [PHP](https://www.php.net), built on the [Nette](https://nette.org) and [Symfony](https://symfony.com) frameworks,
-and is licensed under [Apache2](http://www.apache.org/licenses/LICENSE-2.0).
-
 ### Features:
 
 - Full support for 2018 and later models
 - Support for televisions which need PIN authentication
-- Automated device discovery feature, which automatically detects and adds Panasonic Viera televisions to the FastyBird ecosystem
-- Panasonic Viera Connector management for the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) [devices module](https://github.com/FastyBird/devices-module), allowing users to easily manage and monitor Panasonic Viera devices
+- Automated televisions discovery feature, which automatically detects and adds Panasonic Viera televisions to the FastyBird ecosystem
+- Panasonic Viera Connector management for the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) [devices module](https://github.com/FastyBird/devices-module), allowing users to easily manage and monitor Panasonic Viera televisions
 - [{JSON:API}](https://jsonapi.org/) schemas for full API access, providing a standardized and consistent way for developers to access and manipulate Panasonic Viera device data
 - Regular updates with new features and bug fixes, ensuring that the Panasonic Viera Connector is always up-to-date and reliable.
+
+Panasonic Viera Connector is a distributed extension that is developed in [PHP](https://www.php.net), built on the [Nette](https://nette.org) and [Symfony](https://symfony.com) frameworks,
+and is licensed under [Apache2](http://www.apache.org/licenses/LICENSE-2.0).
 
 
 ## Requirements
@@ -38,18 +42,12 @@ PHP extensions.
 
 ## Installation
 
-### Manual installation
-
-The best way to install **fastybird/viera-connector** is using [Composer](http://getcomposer.org/):
+This extension is part of the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem and is installed by default.
+In case you want to create you own distribution of [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem you could install this extension with  [Composer](http://getcomposer.org/):
 
 ```sh
 composer require fastybird/viera-connector
 ```
-
-### Marketplace installation [WIP]
-
-You could install this connector in your [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things)
-application under marketplace section.
 
 ## Documentation
 

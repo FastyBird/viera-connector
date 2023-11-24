@@ -494,7 +494,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<true> : true)
 	 *
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
@@ -635,7 +635,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<true> : true)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -703,7 +703,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<true> : true)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -768,7 +768,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<bool> : bool)
+	 * @return ($async is true ? Promise\PromiseInterface<true> : true)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -837,7 +837,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return Promise\PromiseInterface<bool>
+	 * @return Promise\PromiseInterface<true>
 	 */
 	public function turnOn(): Promise\PromiseInterface
 	{
@@ -880,7 +880,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return Promise\PromiseInterface<bool>
+	 * @return Promise\PromiseInterface<true>
 	 */
 	public function turnOff(): Promise\PromiseInterface
 	{
@@ -954,7 +954,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	/**
 	 * @return ($runLoop is false ? Promise\PromiseInterface<bool> : bool)
 	 *
-	 * @throws InvalidArgumentException
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function livenessProbe(
 		float $timeout = 1.5,
@@ -974,19 +974,20 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			}
 		});
 
-		$this->socketClientFactory
-			->create()
-			->connect($this->ipAddress . ':' . $this->port)
-			->then(function () use ($deferred, $timeoutTimer, $runLoop, &$result): void {
+		try {
+			$this->socketClientFactory
+				->create()
+				->connect($this->ipAddress . ':' . $this->port)
+				->then(function () use ($deferred, $timeoutTimer, $runLoop, &$result): void {
 					$this->eventLoop->cancelTimer($timeoutTimer);
 
 					$deferred->resolve(true);
 					$result = true;
 
-				if ($runLoop) {
-					$this->eventLoop->stop();
-				}
-			})
+					if ($runLoop) {
+						$this->eventLoop->stop();
+					}
+				})
 				->catch(function () use ($deferred, $runLoop, &$result): void {
 					$deferred->resolve(false);
 					$result = false;
@@ -995,6 +996,13 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 						$this->eventLoop->stop();
 					}
 				});
+		} catch (InvalidArgumentException $ex) {
+			throw new Exceptions\TelevisionApiError(
+				'Could not create socket instance',
+				$ex->getCode(),
+				$ex,
+			);
+		}
 
 		if ($runLoop) {
 			$this->eventLoop->run();
@@ -1281,7 +1289,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return Promise\PromiseInterface<bool>
+	 * @return Promise\PromiseInterface<true>
 	 */
 	public function wakeOnLan(): Promise\PromiseInterface
 	{
