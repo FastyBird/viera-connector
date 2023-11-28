@@ -52,7 +52,6 @@ final class ConnectionManager
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
-	 * @throws MetadataExceptions\MalformedInput
 	 */
 	public function getConnection(MetadataDocuments\DevicesModule\Device $device): TelevisionApi
 	{

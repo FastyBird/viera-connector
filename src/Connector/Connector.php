@@ -20,8 +20,6 @@ use FastyBird\Connector\Viera\Clients;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Writers;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
-use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Connectors as DevicesConnectors;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
@@ -56,9 +54,6 @@ final class Connector implements DevicesConnectors\Connector
 
 	private EventLoop\TimerInterface|null $consumersTimer = null;
 
-	/**
-	 * @param DevicesModels\Configuration\Connectors\Repository<MetadataDocuments\DevicesModule\Connector> $connectorsConfigurationRepository
-	 */
 	public function __construct(
 		private readonly DevicesEntities\Connectors\Connector $connector,
 		private readonly Clients\ClientFactory $clientFactory,
@@ -76,9 +71,6 @@ final class Connector implements DevicesConnectors\Connector
 
 	/**
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
-	 * @throws MetadataExceptions\MalformedInput
 	 */
 	public function execute(): void
 	{
