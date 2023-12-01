@@ -190,7 +190,7 @@ final class StoreChannelPropertyState implements Queue\Consumer
 		}
 
 		$this->logger->debug(
-			'Consumed channel property status message',
+			'Consumed store device state message',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'store-channel-property-state-message-consumer',

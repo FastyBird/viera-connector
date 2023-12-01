@@ -333,7 +333,7 @@ final class StoreDevice implements Queue\Consumer
 		});
 
 		$this->logger->debug(
-			'Consumed device found message',
+			'Consumed store device message',
 			[
 				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
 				'type' => 'store-device-message-consumer',
