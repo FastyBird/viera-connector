@@ -49,7 +49,7 @@ final class StoreChannelPropertyState implements Queue\Consumer
 		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
 		private readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
 		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
-		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStateManager,
+		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
 	)
 	{
 	}
@@ -172,14 +172,14 @@ final class StoreChannelPropertyState implements Queue\Consumer
 		}
 
 		if ($property->getDataType()->equalsValue(MetadataTypes\DataType::DATA_TYPE_BUTTON)) {
-			$this->channelPropertiesStateManager->setValue($property, Utils\ArrayHash::from([
+			$this->channelPropertiesStatesManager->setValue($property, Utils\ArrayHash::from([
 				DevicesStates\Property::ACTUAL_VALUE_FIELD => null,
 				DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
 				DevicesStates\Property::PENDING_FIELD => false,
 				DevicesStates\Property::VALID_FIELD => true,
 			]));
 		} else {
-			$this->channelPropertiesStateManager->setValue($property, Utils\ArrayHash::from([
+			$this->channelPropertiesStatesManager->setValue($property, Utils\ArrayHash::from([
 				DevicesStates\Property::ACTUAL_VALUE_FIELD => MetadataUtilities\ValueHelper::transformValueFromDevice(
 					$property->getDataType(),
 					$property->getFormat(),
