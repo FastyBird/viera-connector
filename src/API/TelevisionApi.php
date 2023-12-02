@@ -1585,6 +1585,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function parseGetSpecs(
 		Message\RequestInterface $request,
@@ -1619,6 +1620,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function parseGetApps(
 		Message\RequestInterface $request,
@@ -1713,6 +1715,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function parseGetVectorInfo(
 		Message\RequestInterface $request,
@@ -1896,6 +1899,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	/**
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function parseRequestPinCode(
 		Message\RequestInterface $request,
@@ -1931,6 +1935,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 * @param array<int> $hmacKey
 	 *
 	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function parseAuthorizePinCode(
 		Message\RequestInterface $request,
@@ -2019,14 +2024,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 *
 	 * @return T
 	 *
-	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function createEntity(string $entity, array $data): Entities\API\Entity
 	{
 		try {
 			return $this->entityHelper->create($entity, $data);
 		} catch (Exceptions\Runtime $ex) {
-			throw new Exceptions\TelevisionApiCall('Could not map data to entity', null, null, $ex->getCode(), $ex);
+			throw new Exceptions\TelevisionApiError('Could not map data to entity', $ex->getCode(), $ex);
 		}
 	}
 
@@ -2426,7 +2431,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @throws Exceptions\TelevisionApiCall
+	 * @throws Exceptions\TelevisionApiError
 	 */
 	private function deriveSessionKeys(): void
 	{
