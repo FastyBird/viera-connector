@@ -17,16 +17,9 @@ namespace FastyBird\Connector\Viera\Writers;
 
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
-use FastyBird\Connector\Viera\Helpers;
-use FastyBird\Connector\Viera\Queue;
-use FastyBird\DateTimeFactory;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Module\Devices\Events as DevicesEvents;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
-use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
-use FastyBird\Module\Devices\Utilities as DevicesUtilities;
-use React\EventLoop;
 use Symfony\Component\EventDispatcher;
 
 /**
@@ -41,31 +34,6 @@ class Event extends Periodic implements Writer, EventDispatcher\EventSubscriberI
 {
 
 	public const NAME = 'event';
-
-	public function __construct(
-		MetadataDocuments\DevicesModule\Connector $connector,
-		Helpers\Entity $entityHelper,
-		Queue\Queue $queue,
-		DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
-		DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
-		DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
-		DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
-		DateTimeFactory\Factory $dateTimeFactory,
-		EventLoop\LoopInterface $eventLoop,
-	)
-	{
-		parent::__construct(
-			$connector,
-			$entityHelper,
-			$queue,
-			$devicesConfigurationRepository,
-			$channelsConfigurationRepository,
-			$channelsPropertiesConfigurationRepository,
-			$channelPropertiesStatesManager,
-			$dateTimeFactory,
-			$eventLoop,
-		);
-	}
 
 	public static function getSubscribedEvents(): array
 	{
