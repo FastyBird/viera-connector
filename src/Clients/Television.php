@@ -106,6 +106,7 @@ final class Television implements Client
 
 		$findDevicesQuery = new DevicesQueries\Configuration\FindDevices();
 		$findDevicesQuery->forConnector($this->connector);
+		$findDevicesQuery->byType(Entities\VieraDevice::TYPE);
 
 		foreach ($this->devicesConfigurationRepository->findAllBy($findDevicesQuery) as $device) {
 			if (!array_key_exists($device->getId()->toString(), $this->properties)) {

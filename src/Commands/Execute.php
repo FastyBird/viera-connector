@@ -159,7 +159,7 @@ class Execute extends Console\Command\Command
 			}
 
 			if (count($connectors) === 0) {
-				$io->warning($this->translator->translate('//viera-connector.cmd.execute.messages.noConnectors'));
+				$io->warning($this->translator->translate('//viera-connector.cmd.base.messages.noConnectors'));
 
 				return Console\Command\Command::SUCCESS;
 			}

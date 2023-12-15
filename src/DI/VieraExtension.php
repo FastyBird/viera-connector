@@ -260,23 +260,17 @@ class VieraExtension extends DI\CompilerExtension
 		 * COMMANDS
 		 */
 
-		$builder->addDefinition($this->prefix('commands.initialize'), new DI\Definitions\ServiceDefinition())
-			->setType(Commands\Initialize::class)
-			->setArguments([
-				'logger' => $logger,
-			]);
-
-		$builder->addDefinition($this->prefix('commands.device'), new DI\Definitions\ServiceDefinition())
-			->setType(Commands\Devices::class)
-			->setArguments([
-				'logger' => $logger,
-			]);
-
 		$builder->addDefinition($this->prefix('commands.execute'), new DI\Definitions\ServiceDefinition())
 			->setType(Commands\Execute::class);
 
 		$builder->addDefinition($this->prefix('commands.discovery'), new DI\Definitions\ServiceDefinition())
-			->setType(Commands\Discovery::class)
+			->setType(Commands\Discover::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		$builder->addDefinition($this->prefix('commands.install'), new DI\Definitions\ServiceDefinition())
+			->setType(Commands\Install::class)
 			->setArguments([
 				'logger' => $logger,
 			]);

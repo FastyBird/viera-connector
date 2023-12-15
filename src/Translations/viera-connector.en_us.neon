@@ -24,115 +24,6 @@ cmd:
             noConnectors: "No Viera connectors registered in system."
             answerNotValid: "Selected answer: \"%s\" is not valid."
 
-    initialize:
-        title: "Viera connector - initialization"
-        subtitle: "This action will create|update|delete connector configuration"
-
-        actions:
-            create: "Create new connector configuration"
-            update: "Edit existing connector configuration"
-            remove: "Delete existing connector configuration"
-            list: "List Viera connectors"
-            nothing: "Nothing"
-
-        questions:
-            create: "Would you like to create new Viera connector configuration?"
-            disable: "Do you want to disable connector?"
-            enable: "Do you want to enable connector?"
-            provide:
-                identifier: "Provide connector identifier"
-                name: "Provide connector name"
-            select:
-                connector: "Please select connector to manage"
-
-        data:
-            name: "Name"
-            devicesCnt: "# Devices"
-
-        messages:
-            identifier:
-                used: "This identifier is already used."
-                missing: "Connector identifier have to be provided."
-            create:
-                success: "Connector \"%name%\" was successfully created."
-                error: "Something went wrong, connector could not be created. An error was logged."
-            update:
-                success: "Connector \"%name%\" was successfully updated."
-                error: "Something went wrong, connector could not be updated. An error was logged."
-            remove:
-                success: "Connector \"%name%\" was successfully removed."
-                error: "Something went wrong, connector could not be removed. An error was logged."
-            noConnectors: "No Viera connectors registered in system."
-
-    devices:
-        title: "Viera connector - televisions management"
-        subtitle: "This action will manage connector televisions"
-
-        actions:
-            create:
-                device: "Create new television"
-            update:
-                device: "Edit existing television"
-            remove:
-                device: "Delete existing television"
-            list:
-                devices: "List televisions"
-            nothing: "Nothing"
-
-        questions:
-            configure:
-                hdmi: "Would you like to configure HDMI inputs?"
-                nextHdmi: "Would you like to configure another HDMI inputs?"
-                macAddress: "Would you like to configure television MAC address?"
-            create:
-                device: "Would you like to create new television?"
-            change:
-                ipAddress: "Do you want to change television IP address?"
-                port: "Do you want to change television port?"
-                hdmi: "Do you want to redefine television HDMI inputs?"
-                macAddress: "Do you want to change television MAC address?"
-            provide:
-                name: "Provide television name"
-                ipAddress: "Provide television IP address"
-                port: "Provide television port number"
-                macAddress: "Provide television MAC address in format: 01:23:45:67:89:ab"
-                pinCode: "Provide PIN code displayed on you television"
-                hdmiName: "Provide name for HDMI input"
-                hdmiNumber: "Provide number for \"%name%\" HDMI input"
-            select:
-                connector: "Please select connector under which you want to manage televisions"
-                device: "Please select television to manage"
-
-        data:
-            id: "ID"
-            name: "Name"
-            model: "Model"
-            ipAddress: "IP Address"
-            encryption: "Is Encrypted"
-
-        messages:
-            device:
-                connectionFailed: "Connection with your television could not be established. Television could not be created. An error was logged."
-                unreachable: "The provided IP: \"%address%\" address is unreachable."
-                loadingSpecsFailed: "Reading television specification failed. Television could not be created. An error was logged."
-                loadingAppsFailed: "Reading television applications failed. Television could not be created. An error was logged."
-                offline: "It looks like your television is not turned on. It is possible that the pairing could not be finished."
-                needPairing: "It looks like your TV require application pairing."
-                checkStatusFailed: "Reading television status failed. Television could not be created. An error was logged."
-            info:
-                hdmi: "Now you have to provide name for configured HDMI input and its number. HDMI number is related to you television."
-                macAddress: "MAC address will be used to turn on you television on."
-            create:
-                success: "Television \"%name%\" was successfully created."
-                error: "Something went wrong, television could not be created. An error was logged."
-            update:
-                success: "Television \"%name%\" was successfully updated."
-                error: "Something went wrong, television could not be updated. An error was logged."
-            remove:
-                success: "Television \"%name%\" was successfully removed."
-                error: "Something went wrong, television could not be removed. An error was logged."
-            noDevices: "No televisions registered in selected connector."
-
     execute:
         title: "Viera connector - service"
         subtitle: "This action will run connector service"
@@ -146,15 +37,14 @@ cmd:
             connector:
                 notFound: "Connector was not found in system."
                 disabled: "Connector is disabled. Disabled connector could not be executed."
-            noConnectors: "No Viera connectors registered in system."
             error: "Something went wrong, connector was terminated."
 
-    discovery:
-        title: "Viera connector - devices discovery"
-        subtitle: "This action will run connector devices discovery"
+    discover:
+        title: "Viera connector - televisions discovery"
+        subtitle: "This action will run connector televisions discovery"
 
         questions:
-            execute: "Would you like to discover devices with \"%connector%\" connector"
+            execute: "Would you like to discover televisions with \"%connector%\" connector"
             select:
                 connector: "Please select connector to perform discovery"
             pairDevice: "Would you like to pair this televisions?"
@@ -172,11 +62,10 @@ cmd:
             connector:
                 notFound: "Connector was not found in system."
                 disabled: "Connector is disabled. Disabled connector could not be executed."
-            noConnectors: "No Viera connectors registered in system."
             starting: "Starting Viera connector discovery..."
             stopping: "Stopping Viera connector discovery..."
-            foundDevices: "Found %d new devices."
-            noDevicesFound: "No devices were found."
+            foundDevices: "Found %d new televisions."
+            noDevicesFound: "No televisions were found."
             success: "Devices discovery was successfully finished."
             error: "Devices discovery failed. An error was logged."
             foundEncryptedDevices: "Some televisions require to by paired to get encryption keys."
@@ -189,3 +78,117 @@ cmd:
                 connectionFailed: "Connection with your television: \"%device%\" could not be established. Pairing could not be finished. An error was logged."
                 pairingFailed: "Something went wrong, television: \"%device%\" could not be paired. An error was logged."
                 offline: "It looks like your television: \"%device%\" is not turned on. It is possible that the pairing could not be finished."
+
+    install:
+        title: "Viera connector - installer"
+        subtitle: "This action will create|update|delete connector configuration"
+
+        actions:
+            create:
+                connector: "Create connector"
+                device: "Create television"
+            update:
+                connector: "Edit connector"
+                device: "Edit television"
+            remove:
+                connector: "Delete connector"
+                device: "Delete television"
+            manage:
+                connector: "Manage connector"
+            list:
+                connectors: "List connectors"
+                devices: "List televisions"
+            discover:
+                devices: "Discover televisions"
+            nothing: "Nothing"
+
+        questions:
+            create:
+                connector: "Would you like to create new connector configuration?"
+                devices: "Would you like to configure connector television(s)?"
+                device: "Would you like to create new television?"
+            manage:
+                devices: "Would you like to manage connector televisions?"
+            provide:
+                connector:
+                    identifier: "Provide connector identifier"
+                    name: "Provide connector name"
+                device:
+                    name: "Provide television name"
+                    ipAddress: "Provide television IP address"
+                    port: "Provide television port number"
+                    macAddress: "Provide television MAC address in format: 01:23:45:67:89:ab"
+                    pinCode: "Provide PIN code displayed on you television"
+                    hdmiName: "Provide name for HDMI input"
+                    hdmiNumber: "Provide number for \"%name%\" HDMI input"
+            select:
+                item:
+                    connector: "Please select connector to manage"
+                    device: "Please select television to manage"
+            disable:
+                connector: "Do you want to disable connector?"
+            enable:
+                connector: "Do you want to enable connector?"
+            change:
+                ipAddress: "Do you want to change television IP address?"
+                port: "Do you want to change television port?"
+                hdmi: "Do you want to redefine television HDMI inputs?"
+                macAddress: "Do you want to change television MAC address?"
+            configure:
+                hdmi: "Would you like to configure HDMI inputs?"
+                nextHdmi: "Would you like to configure another HDMI inputs?"
+                macAddress: "Would you like to configure television MAC address?"
+
+        data:
+            id: "ID"
+            name: "Name"
+            model: "Model"
+            ipAddress: "IP Address"
+            encryption: "Is Encrypted"
+            devicesCnt: "# Televisions"
+
+        messages:
+            identifier:
+                connector:
+                    used: "This identifier is already used."
+                    missing: "Connector identifier have to be provided."
+            create:
+                connector:
+                    success: "Connector \"%name%\" was successfully created."
+                    error: "Something went wrong, connector could not be created. An error was logged."
+                device:
+                    success: "Television \"%name%\" was successfully created."
+                    error: "Something went wrong, television could not be created. An error was logged."
+            update:
+                connector:
+                    success: "Connector \"%name%\" was successfully updated."
+                    error: "Something went wrong, connector could not be updated. An error was logged."
+                device:
+                    success: "Television \"%name%\" was successfully updated."
+                    error: "Something went wrong, television could not be updated. An error was logged."
+            remove:
+                connector:
+                    confirm: "This action will remove \"%name%\" connector. This action can not be undone."
+                    success: "Connector \"%name%\" was successfully removed."
+                    error: "Something went wrong, connector could not be removed. An error was logged."
+                device:
+                    confirm: "This action will remove \"%name%\" television. This action can not be undone."
+                    success: "Television \"%name%\" was successfully removed."
+                    error: "Something went wrong, television could not be removed. An error was logged."
+            device:
+                connectionFailed: "Connection with your television could not be established. Television could not be created. An error was logged."
+                unreachable: "The provided IP: \"%address%\" address is unreachable."
+                loadingSpecsFailed: "Reading television specification failed. Television could not be created. An error was logged."
+                loadingAppsFailed: "Reading television applications failed. Television could not be created. An error was logged."
+                offline: "It looks like your television is not turned on. It is possible that the pairing could not be finished."
+                needPairing: "It looks like your TV require application pairing."
+                checkStatusFailed: "Reading television status failed. Television could not be created. An error was logged."
+            info:
+                hdmi: "Now you have to provide name for configured HDMI input and its number. HDMI number is related to you television."
+                macAddress: "MAC address will be used to turn on you television on."
+            discover:
+                success: "Televisions discovery was successfully finished"
+                error: "Televisions discovery failed. An error was logged."
+            noDevices: "No televisions registered in selected connector."
+            foundDevices: "Found %d new televisions"
+            noDevicesFound: "No televisions were found"

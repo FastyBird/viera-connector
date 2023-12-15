@@ -70,6 +70,7 @@ class Event extends Periodic implements Writer, EventDispatcher\EventSubscriberI
 
 		$findDeviceQuery = new DevicesQueries\Configuration\FindDevices();
 		$findDeviceQuery->byId($channel->getDevice());
+		$findDeviceQuery->byType(Entities\VieraDevice::TYPE);
 
 		$device = $this->devicesConfigurationRepository->findOneBy($findDeviceQuery);
 

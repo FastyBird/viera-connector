@@ -1,7 +1,7 @@
 <?php declare(strict_types = 1);
 
 /**
- * Devices.php
+ * Install.php
  *
  * @license        More in LICENSE.md
  * @copyright      https://www.fastybird.com
@@ -10,7 +10,7 @@
  * @subpackage     Commands
  * @since          1.0.0
  *
- * @date           18.06.23
+ * @date           14.12.23
  */
 
 namespace FastyBird\Connector\Viera\Commands;
@@ -26,9 +26,11 @@ use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
+use FastyBird\Library\Bootstrap\Exceptions as BootstrapExceptions;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Module\Devices\Commands as DevicesCommands;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
@@ -58,17 +60,17 @@ use function trim;
 use function usort;
 
 /**
- * Connector devices management command
+ * Connector install command
  *
  * @package        FastyBird:VieraConnector!
  * @subpackage     Commands
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class Devices extends Console\Command\Command
+class Install extends Console\Command\Command
 {
 
-	public const NAME = 'fb:viera-connector:devices';
+	public const NAME = 'fb:viera-connector:install';
 	// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
 	private const MATCH_IP_ADDRESS = '/^((?:[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])[.]){3}(?:[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])$/';
 
@@ -76,10 +78,15 @@ class Devices extends Console\Command\Command
 
 	private string|null $challengeKey = null;
 
+	private Input\InputInterface|null $input = null;
+
+	private Output\OutputInterface|null $output = null;
+
 	public function __construct(
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
 		private readonly Viera\Logger $logger,
 		private readonly DevicesModels\Entities\Connectors\ConnectorsRepository $connectorsRepository,
+		private readonly DevicesModels\Entities\Connectors\ConnectorsManager $connectorsManager,
 		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
 		private readonly DevicesModels\Entities\Devices\DevicesManager $devicesManager,
 		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
@@ -88,8 +95,9 @@ class Devices extends Console\Command\Command
 		private readonly DevicesModels\Entities\Channels\ChannelsManager $channelsManager,
 		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private readonly DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
-		private readonly Persistence\ManagerRegistry $managerRegistry,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
+		private readonly Persistence\ManagerRegistry $managerRegistry,
+		private readonly BootstrapHelpers\Database $databaseHelper,
 		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)
@@ -104,51 +112,400 @@ class Devices extends Console\Command\Command
 	{
 		$this
 			->setName(self::NAME)
-			->setDescription('Viera connector televisions management');
+			->setDescription('Viera connector installer');
 	}
 
 	/**
-	 * @throws Console\Exception\InvalidArgumentException
+	 * @throws BootstrapExceptions\InvalidState
+	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
 	 * @throws RuntimeException
 	 */
 	protected function execute(Input\InputInterface $input, Output\OutputInterface $output): int
 	{
-		$io = new Style\SymfonyStyle($input, $output);
+		$this->input = $input;
+		$this->output = $output;
 
-		$io->title($this->translator->translate('//viera-connector.cmd.devices.title'));
+		$io = new Style\SymfonyStyle($this->input, $this->output);
 
-		$io->note($this->translator->translate('//viera-connector.cmd.devices.subtitle'));
+		$io->title($this->translator->translate('//viera-connector.cmd.install.title'));
 
-		if ($input->getOption('no-interaction') === false) {
-			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
-				false,
-			);
+		$io->note($this->translator->translate('//viera-connector.cmd.install.subtitle'));
 
-			$continue = (bool) $io->askQuestion($question);
+		$this->askInstallAction($io);
 
-			if (!$continue) {
-				return Console\Command\Command::SUCCESS;
+		return Console\Command\Command::SUCCESS;
+	}
+
+	/**
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\Runtime
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws RuntimeException
+	 */
+	private function createConnector(Style\SymfonyStyle $io): void
+	{
+		$question = new Console\Question\Question(
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.connector.identifier'),
+		);
+
+		$question->setValidator(function ($answer) {
+			if ($answer !== null) {
+				$findConnectorQuery = new Queries\Entities\FindConnectors();
+				$findConnectorQuery->byIdentifier($answer);
+
+				if ($this->connectorsRepository->findOneBy(
+					$findConnectorQuery,
+					Entities\VieraConnector::class,
+				) !== null) {
+					throw new Exceptions\Runtime(
+						$this->translator->translate(
+							'//viera-connector.cmd.install.messages.identifier.connector.used',
+						),
+					);
+				}
+			}
+
+			return $answer;
+		});
+
+		$identifier = $io->askQuestion($question);
+
+		if ($identifier === '' || $identifier === null) {
+			$identifierPattern = 'viera-%d';
+
+			for ($i = 1; $i <= 100; $i++) {
+				$identifier = sprintf($identifierPattern, $i);
+
+				$findConnectorQuery = new Queries\Entities\FindConnectors();
+				$findConnectorQuery->byIdentifier($identifier);
+
+				if ($this->connectorsRepository->findOneBy(
+					$findConnectorQuery,
+					Entities\VieraConnector::class,
+				) === null) {
+					break;
+				}
 			}
 		}
 
+		if ($identifier === '') {
+			$io->error(
+				$this->translator->translate('//viera-connector.cmd.install.messages.identifier.connector.missing'),
+			);
+
+			return;
+		}
+
+		$name = $this->askConnectorName($io);
+
+		try {
+			// Start transaction connection to the database
+			$this->getOrmConnection()->beginTransaction();
+
+			$connector = $this->connectorsManager->create(Utils\ArrayHash::from([
+				'entity' => Entities\VieraConnector::class,
+				'identifier' => $identifier,
+				'name' => $name === '' ? null : $name,
+			]));
+			assert($connector instanceof Entities\VieraConnector);
+
+			// Commit all changes into database
+			$this->getOrmConnection()->commit();
+
+			$this->databaseHelper->clear();
+
+			$io->success(
+				$this->translator->translate(
+					'//viera-connector.cmd.install.messages.create.connector.success',
+					['name' => $connector->getName() ?? $connector->getIdentifier()],
+				),
+			);
+		} catch (Throwable $ex) {
+			// Log caught exception
+			$this->logger->error(
+				'An unhandled error occurred',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'install-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.create.connector.error'));
+
+			return;
+		} finally {
+			// Revert all changes when error occur
+			if ($this->getOrmConnection()->isTransactionActive()) {
+				$this->getOrmConnection()->rollBack();
+			}
+		}
+
+		$question = new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.install.questions.create.devices'),
+			true,
+		);
+
+		$createRegisters = (bool) $io->askQuestion($question);
+
+		if ($createRegisters) {
+			$this->createDevice($io, $connector);
+		}
+	}
+
+	/**
+	 * @throws Console\Exception\ExceptionInterface
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
+	 * @throws Exceptions\Runtime
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws RuntimeException
+	 */
+	private function editConnector(Style\SymfonyStyle $io): void
+	{
 		$connector = $this->askWhichConnector($io);
 
 		if ($connector === null) {
 			$io->warning($this->translator->translate('//viera-connector.cmd.base.messages.noConnectors'));
 
-			return Console\Command\Command::SUCCESS;
+			$question = new Console\Question\ConfirmationQuestion(
+				$this->translator->translate('//viera-connector.cmd.install.questions.create.connector'),
+				false,
+			);
+
+			$continue = (bool) $io->askQuestion($question);
+
+			if ($continue) {
+				$this->createConnector($io);
+			}
+
+			return;
 		}
 
-		$this->askConnectorAction($io, $connector);
+		$name = $this->askConnectorName($io, $connector);
 
-		return Console\Command\Command::SUCCESS;
+		$enabled = $connector->isEnabled();
+
+		if ($connector->isEnabled()) {
+			$question = new Console\Question\ConfirmationQuestion(
+				$this->translator->translate('//viera-connector.cmd.install.questions.disable.connector'),
+				false,
+			);
+
+			if ($io->askQuestion($question) === true) {
+				$enabled = false;
+			}
+		} else {
+			$question = new Console\Question\ConfirmationQuestion(
+				$this->translator->translate('//viera-connector.cmd.install.questions.enable.connector'),
+				false,
+			);
+
+			if ($io->askQuestion($question) === true) {
+				$enabled = true;
+			}
+		}
+
+		try {
+			// Start transaction connection to the database
+			$this->getOrmConnection()->beginTransaction();
+
+			$connector = $this->connectorsManager->update($connector, Utils\ArrayHash::from([
+				'name' => $name === '' ? null : $name,
+				'enabled' => $enabled,
+			]));
+			assert($connector instanceof Entities\VieraConnector);
+
+			// Commit all changes into database
+			$this->getOrmConnection()->commit();
+
+			$this->databaseHelper->clear();
+
+			$io->success(
+				$this->translator->translate(
+					'//viera-connector.cmd.install.messages.update.connector.success',
+					['name' => $connector->getName() ?? $connector->getIdentifier()],
+				),
+			);
+		} catch (Throwable $ex) {
+			// Log caught exception
+			$this->logger->error(
+				'An unhandled error occurred',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'install-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.update.connector.error'));
+
+			return;
+		} finally {
+			// Revert all changes when error occur
+			if ($this->getOrmConnection()->isTransactionActive()) {
+				$this->getOrmConnection()->rollBack();
+			}
+		}
+
+		$question = new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.install.questions.manage.devices'),
+			false,
+		);
+
+		$manage = (bool) $io->askQuestion($question);
+
+		if (!$manage) {
+			return;
+		}
+
+		$this->askManageConnectorAction($io, $connector);
+	}
+
+	/**
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\Runtime
+	 */
+	private function deleteConnector(Style\SymfonyStyle $io): void
+	{
+		$connector = $this->askWhichConnector($io);
+
+		if ($connector === null) {
+			$io->info($this->translator->translate('//viera-connector.cmd.base.messages.noConnectors'));
+
+			return;
+		}
+
+		$io->warning(
+			$this->translator->translate(
+				'//viera-connector.cmd.install.messages.remove.connector.confirm',
+				['name' => $connector->getName() ?? $connector->getIdentifier()],
+			),
+		);
+
+		$question = new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
+			false,
+		);
+
+		$continue = (bool) $io->askQuestion($question);
+
+		if (!$continue) {
+			return;
+		}
+
+		try {
+			// Start transaction connection to the database
+			$this->getOrmConnection()->beginTransaction();
+
+			$this->connectorsManager->delete($connector);
+
+			// Commit all changes into database
+			$this->getOrmConnection()->commit();
+
+			$this->databaseHelper->clear();
+
+			$io->success(
+				$this->translator->translate(
+					'//viera-connector.cmd.install.messages.remove.connector.success',
+					['name' => $connector->getName() ?? $connector->getIdentifier()],
+				),
+			);
+		} catch (Throwable $ex) {
+			// Log caught exception
+			$this->logger->error(
+				'An unhandled error occurred',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'install-cmd',
+					'exception' => BootstrapHelpers\Logger::buildException($ex),
+				],
+			);
+
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.remove.connector.error'));
+		} finally {
+			// Revert all changes when error occur
+			if ($this->getOrmConnection()->isTransactionActive()) {
+				$this->getOrmConnection()->rollBack();
+			}
+		}
+	}
+
+	/**
+	 * @throws BootstrapExceptions\InvalidState
+	 * @throws Console\Exception\ExceptionInterface
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
+	 * @throws Exceptions\InvalidState
+	 * @throws Exceptions\Runtime
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws RuntimeException
+	 */
+	private function manageConnector(Style\SymfonyStyle $io): void
+	{
+		$connector = $this->askWhichConnector($io);
+
+		if ($connector === null) {
+			$io->info($this->translator->translate('//viera-connector.cmd.base.messages.noConnectors'));
+
+			return;
+		}
+
+		$this->askManageConnectorAction($io, $connector);
+	}
+
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 */
+	private function listConnectors(Style\SymfonyStyle $io): void
+	{
+		$findConnectorsQuery = new Queries\Entities\FindConnectors();
+
+		$connectors = $this->connectorsRepository->findAllBy($findConnectorsQuery, Entities\VieraConnector::class);
+		usort(
+			$connectors,
+			static function (Entities\VieraConnector $a, Entities\VieraConnector $b): int {
+				if ($a->getIdentifier() === $b->getIdentifier()) {
+					return $a->getName() <=> $b->getName();
+				}
+
+				return $a->getIdentifier() <=> $b->getIdentifier();
+			},
+		);
+
+		$table = new Console\Helper\Table($io);
+		$table->setHeaders([
+			'#',
+			$this->translator->translate('//viera-connector.cmd.install.data.name'),
+			$this->translator->translate('//viera-connector.cmd.install.data.devicesCnt'),
+		]);
+
+		foreach ($connectors as $index => $connector) {
+			$findDevicesQuery = new Queries\Entities\FindDevices();
+			$findDevicesQuery->forConnector($connector);
+
+			$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+
+			$table->addRow([
+				$index + 1,
+				$connector->getName() ?? $connector->getIdentifier(),
+				count($devices),
+			]);
+		}
+
+		$table->render();
+
+		$io->newLine();
 	}
 
 	/**
@@ -162,7 +519,7 @@ class Devices extends Console\Command\Command
 	{
 		$tempIdentifier = 'new-device-' . $this->dateTimeFactory->getNow()->format(DateTimeInterface::ATOM);
 
-		$ipAddress = $this->askIpAddress($io);
+		$ipAddress = $this->askDeviceIpAddress($io);
 
 		try {
 			$televisionApi = $this->televisionApiFactory->create(
@@ -173,14 +530,14 @@ class Devices extends Console\Command\Command
 			$televisionApi->connect();
 		} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
 			);
 
 			$this->logger->error(
 				'Creating api client failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -192,14 +549,14 @@ class Devices extends Console\Command\Command
 			$isOnline = $televisionApi->livenessProbe(1.5, true);
 		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
 			);
 
 			$this->logger->error(
 				'Checking TV status failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -210,7 +567,7 @@ class Devices extends Console\Command\Command
 		if ($isOnline === false) {
 			$io->error(
 				$this->translator->translate(
-					'//viera-connector.cmd.devices.messages.device.unreachable',
+					'//viera-connector.cmd.install.messages.device.unreachable',
 					['address' => $ipAddress],
 				),
 			);
@@ -222,14 +579,14 @@ class Devices extends Console\Command\Command
 			$specs = $televisionApi->getSpecs(false);
 		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.loadingSpecsFailed'),
 			);
 
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -237,14 +594,14 @@ class Devices extends Console\Command\Command
 			return;
 		} catch (Exceptions\TelevisionApiCall $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.loadingSpecsFailed'),
 			);
 
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'request' => [
 						'method' => $ex->getRequest()?->getMethod(),
@@ -266,14 +623,14 @@ class Devices extends Console\Command\Command
 			$isTurnedOn = $televisionApi->isTurnedOn(true);
 		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.checkStatusFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.checkStatusFailed'),
 			);
 
 			$this->logger->error(
 				'Checking screen status failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -283,12 +640,12 @@ class Devices extends Console\Command\Command
 
 		if ($specs->isRequiresEncryption()) {
 			$io->warning(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.needPairing'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.needPairing'),
 			);
 
 			if ($isTurnedOn === false) {
 				$io->warning(
-					$this->translator->translate('//viera-connector.cmd.devices.messages.device.offline'),
+					$this->translator->translate('//viera-connector.cmd.install.messages.device.offline'),
 				);
 
 				$question = new Console\Question\ConfirmationQuestion(
@@ -308,7 +665,7 @@ class Devices extends Console\Command\Command
 					->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
 					->getChallengeKey();
 
-				$authorization = $this->askPinCode($io, $connector, $televisionApi);
+				$authorization = $this->askDevicePinCode($io, $connector, $televisionApi);
 
 				$televisionApi = $this->televisionApiFactory->create(
 					$tempIdentifier,
@@ -320,14 +677,14 @@ class Devices extends Console\Command\Command
 				$televisionApi->connect();
 			} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 				$io->error(
-					$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+					$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
 				);
 
 				$this->logger->error(
 					'Pin code pairing failed',
 					[
 						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'devices-cmd',
+						'type' => 'install-cmd',
 						'exception' => BootstrapHelpers\Logger::buildException($ex),
 					],
 				);
@@ -340,14 +697,14 @@ class Devices extends Console\Command\Command
 			$apps = $isTurnedOn ? $televisionApi->getApps(false) : null;
 		} catch (Exceptions\TelevisionApiError | Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingAppsFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.loadingAppsFailed'),
 			);
 
 			$this->logger->error(
 				'Loading apps failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -358,7 +715,7 @@ class Devices extends Console\Command\Command
 		$hdmi = [];
 
 		$question = new Console\Question\ConfirmationQuestion(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.configure.hdmi'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.configure.hdmi'),
 			false,
 		);
 
@@ -366,13 +723,13 @@ class Devices extends Console\Command\Command
 
 		if ($configureHdmi) {
 			$io->note(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.info.hdmi'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.info.hdmi'),
 			);
 
 			while (true) {
-				$hdmiName = $this->askHdmiName($io);
+				$hdmiName = $this->askDeviceHdmiName($io);
 
-				$hdmiIndex = $this->askHdmiIndex($io, $hdmiName);
+				$hdmiIndex = $this->askDeviceHdmiIndex($io, $hdmiName);
 
 				$hdmi[] = [
 					Helpers\Name::sanitizeEnumName($hdmiName),
@@ -381,7 +738,7 @@ class Devices extends Console\Command\Command
 				];
 
 				$question = new Console\Question\ConfirmationQuestion(
-					$this->translator->translate('//viera-connector.cmd.devices.questions.configure.nextHdmi'),
+					$this->translator->translate('//viera-connector.cmd.install.questions.configure.nextHdmi'),
 					false,
 				);
 
@@ -394,7 +751,7 @@ class Devices extends Console\Command\Command
 		}
 
 		$question = new Console\Question\ConfirmationQuestion(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.configure.macAddress'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.configure.macAddress'),
 			false,
 		);
 
@@ -404,10 +761,10 @@ class Devices extends Console\Command\Command
 
 		if ($configureMacAddress) {
 			$io->note(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.info.macAddress'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.info.macAddress'),
 			);
 
-			$macAddress = $this->askMacAddress($io);
+			$macAddress = $this->askDeviceMacAddress($io);
 		}
 
 		try {
@@ -609,9 +966,11 @@ class Devices extends Console\Command\Command
 			// Commit all changes into database
 			$this->getOrmConnection()->commit();
 
+			$this->databaseHelper->clear();
+
 			$io->success(
 				$this->translator->translate(
-					'//viera-connector.cmd.devices.messages.create.success',
+					'//viera-connector.cmd.install.messages.create.device.success',
 					['name' => $device->getName() ?? $device->getIdentifier()],
 				),
 			);
@@ -621,12 +980,14 @@ class Devices extends Console\Command\Command
 				'An unhandled error occurred',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
 
-			$io->error($this->translator->translate('//viera-connector.cmd.devices.messages.create.error'));
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.create.device.error'));
+
+			return;
 		} finally {
 			// Revert all changes when error occur
 			if ($this->getOrmConnection()->isTransactionActive()) {
@@ -647,10 +1008,10 @@ class Devices extends Console\Command\Command
 		$device = $this->askWhichDevice($io, $connector);
 
 		if ($device === null) {
-			$io->warning($this->translator->translate('//viera-connector.cmd.devices.messages.noDevices'));
+			$io->warning($this->translator->translate('//viera-connector.cmd.install.messages.noDevices'));
 
 			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.create.device'),
+				$this->translator->translate('//viera-connector.cmd.install.questions.create.device'),
 				false,
 			);
 
@@ -684,7 +1045,7 @@ class Devices extends Console\Command\Command
 
 		} else {
 			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.change.ipAddress'),
+				$this->translator->translate('//viera-connector.cmd.install.questions.change.ipAddress'),
 				false,
 			);
 
@@ -694,7 +1055,7 @@ class Devices extends Console\Command\Command
 		$ipAddress = $device->getIpAddress();
 
 		if ($changeIpAddress || $ipAddress === null) {
-			$ipAddress = $this->askIpAddress($io, $device);
+			$ipAddress = $this->askDeviceIpAddress($io, $device);
 		}
 
 		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
@@ -708,7 +1069,7 @@ class Devices extends Console\Command\Command
 
 		} else {
 			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.change.port'),
+				$this->translator->translate('//viera-connector.cmd.install.questions.change.port'),
 				false,
 			);
 
@@ -718,7 +1079,7 @@ class Devices extends Console\Command\Command
 		$port = $device->getPort();
 
 		if ($changePort) {
-			$port = $this->askPort($io, $device);
+			$port = $this->askDevicePort($io, $device);
 		}
 
 		$hdmiProperty = null;
@@ -731,22 +1092,15 @@ class Devices extends Console\Command\Command
 			$hdmiProperty = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
 		}
 
-		if ($hdmiProperty === null) {
-			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.configure.hdmi'),
-				false,
-			);
+		$question = $hdmiProperty === null ? new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.install.questions.configure.hdmi'),
+			false,
+		) : new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.install.questions.change.hdmi'),
+			false,
+		);
 
-			$configureHdmi = (bool) $io->askQuestion($question);
-
-		} else {
-			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.change.hdmi'),
-				false,
-			);
-
-			$configureHdmi = (bool) $io->askQuestion($question);
-		}
+		$configureHdmi = (bool) $io->askQuestion($question);
 
 		$hdmi = null;
 
@@ -754,18 +1108,18 @@ class Devices extends Console\Command\Command
 			$hdmi = [];
 
 			$io->note(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.info.hdmi'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.info.hdmi'),
 			);
 
 			while (true) {
-				$hdmiName = $this->askHdmiName($io);
+				$hdmiName = $this->askDeviceHdmiName($io);
 
-				$hdmiIndex = $this->askHdmiIndex($io, $hdmiName);
+				$hdmiIndex = $this->askDeviceHdmiIndex($io, $hdmiName);
 
 				$hdmi[$hdmiIndex] = $hdmiName;
 
 				$question = new Console\Question\ConfirmationQuestion(
-					$this->translator->translate('//viera-connector.cmd.devices.questions.configure.nextHdmi'),
+					$this->translator->translate('//viera-connector.cmd.install.questions.configure.nextHdmi'),
 					false,
 				);
 
@@ -819,7 +1173,7 @@ class Devices extends Console\Command\Command
 
 		if ($macAddressProperty === null) {
 			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.configure.macAddress'),
+				$this->translator->translate('//viera-connector.cmd.install.questions.configure.macAddress'),
 				false,
 			);
 
@@ -827,7 +1181,7 @@ class Devices extends Console\Command\Command
 
 		} else {
 			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.devices.questions.change.macAddress'),
+				$this->translator->translate('//viera-connector.cmd.install.questions.change.macAddress'),
 				false,
 			);
 
@@ -837,7 +1191,7 @@ class Devices extends Console\Command\Command
 		$macAddress = $device->getMacAddress();
 
 		if ($changeMacAddress) {
-			$macAddress = $this->askMacAddress($io, $device);
+			$macAddress = $this->askDeviceMacAddress($io, $device);
 		}
 
 		try {
@@ -851,14 +1205,14 @@ class Devices extends Console\Command\Command
 			$televisionApi->connect();
 		} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
 			);
 
 			$this->logger->error(
 				'Creating api client failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -870,14 +1224,14 @@ class Devices extends Console\Command\Command
 			$isOnline = $televisionApi->livenessProbe(1.5, true);
 		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
 			);
 
 			$this->logger->error(
 				'Checking TV status failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -888,7 +1242,7 @@ class Devices extends Console\Command\Command
 		if ($isOnline === false) {
 			$io->error(
 				$this->translator->translate(
-					'//viera-connector.cmd.devices.messages.device.unreachable',
+					'//viera-connector.cmd.install.messages.device.unreachable',
 					['address' => $ipAddress],
 				),
 			);
@@ -900,14 +1254,14 @@ class Devices extends Console\Command\Command
 			$specs = $televisionApi->getSpecs(false);
 		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.loadingSpecsFailed'),
 			);
 
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -915,14 +1269,14 @@ class Devices extends Console\Command\Command
 			return;
 		} catch (Exceptions\TelevisionApiCall $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingSpecsFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.loadingSpecsFailed'),
 			);
 
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 					'request' => [
 						'method' => $ex->getRequest()?->getMethod(),
@@ -942,14 +1296,14 @@ class Devices extends Console\Command\Command
 			$isTurnedOn = $televisionApi->isTurnedOn(true);
 		} catch (Exceptions\TelevisionApiError $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.checkStatusFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.checkStatusFailed'),
 			);
 
 			$this->logger->error(
 				'Checking screen status failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -966,12 +1320,12 @@ class Devices extends Console\Command\Command
 				|| $device->getEncryptionKey() === null
 			) {
 				$io->warning(
-					$this->translator->translate('//viera-connector.cmd.devices.messages.device.needPairing'),
+					$this->translator->translate('//viera-connector.cmd.install.messages.device.needPairing'),
 				);
 
 				if ($isTurnedOn === false) {
 					$io->warning(
-						$this->translator->translate('//viera-connector.cmd.devices.messages.device.offline'),
+						$this->translator->translate('//viera-connector.cmd.install.messages.device.offline'),
 					);
 
 					$question = new Console\Question\ConfirmationQuestion(
@@ -991,7 +1345,7 @@ class Devices extends Console\Command\Command
 						->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
 						->getChallengeKey();
 
-					$authorization = $this->askPinCode($io, $connector, $televisionApi);
+					$authorization = $this->askDevicePinCode($io, $connector, $televisionApi);
 
 					$televisionApi = $this->televisionApiFactory->create(
 						$device->getIdentifier(),
@@ -1003,14 +1357,14 @@ class Devices extends Console\Command\Command
 					$televisionApi->connect();
 				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 					$io->error(
-						$this->translator->translate('//viera-connector.cmd.devices.messages.device.connectionFailed'),
+						$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
 					);
 
 					$this->logger->error(
 						'Pin code pairing failed',
 						[
 							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-							'type' => 'devices-cmd',
+							'type' => 'install-cmd',
 							'exception' => BootstrapHelpers\Logger::buildException($ex),
 						],
 					);
@@ -1024,14 +1378,14 @@ class Devices extends Console\Command\Command
 			$apps = $isTurnedOn ? $televisionApi->getApps(false) : null;
 		} catch (Exceptions\TelevisionApiError | Exceptions\TelevisionApiCall | Exceptions\InvalidState $ex) {
 			$io->error(
-				$this->translator->translate('//viera-connector.cmd.devices.messages.device.loadingAppsFailed'),
+				$this->translator->translate('//viera-connector.cmd.install.messages.device.loadingAppsFailed'),
 			);
 
 			$this->logger->error(
 				'Loading apps failed',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
@@ -1229,9 +1583,11 @@ class Devices extends Console\Command\Command
 			// Commit all changes into database
 			$this->getOrmConnection()->commit();
 
+			$this->databaseHelper->clear();
+
 			$io->success(
 				$this->translator->translate(
-					'//viera-connector.cmd.devices.messages.update.success',
+					'//viera-connector.cmd.install.messages.update.device.success',
 					['name' => $device->getName() ?? $device->getIdentifier()],
 				),
 			);
@@ -1241,12 +1597,14 @@ class Devices extends Console\Command\Command
 				'An unhandled error occurred',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
 
-			$io->error($this->translator->translate('//viera-connector.cmd.devices.messages.update.error'));
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.update.device.error'));
+
+			return;
 		} finally {
 			// Revert all changes when error occur
 			if ($this->getOrmConnection()->isTransactionActive()) {
@@ -1265,10 +1623,17 @@ class Devices extends Console\Command\Command
 		$device = $this->askWhichDevice($io, $connector);
 
 		if ($device === null) {
-			$io->warning($this->translator->translate('//viera-connector.cmd.devices.messages.noDevices'));
+			$io->warning($this->translator->translate('//viera-connector.cmd.install.messages.noDevices'));
 
 			return;
 		}
+
+		$io->warning(
+			$this->translator->translate(
+				'//viera-connector.cmd.install.messages.remove.device.confirm',
+				['name' => $device->getName() ?? $device->getIdentifier()],
+			),
+		);
 
 		$question = new Console\Question\ConfirmationQuestion(
 			$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
@@ -1290,9 +1655,11 @@ class Devices extends Console\Command\Command
 			// Commit all changes into database
 			$this->getOrmConnection()->commit();
 
+			$this->databaseHelper->clear();
+
 			$io->success(
 				$this->translator->translate(
-					'//viera-connector.cmd.devices.messages.remove.success',
+					'//viera-connector.cmd.install.messages.remove.device.success',
 					['name' => $device->getName() ?? $device->getIdentifier()],
 				),
 			);
@@ -1302,12 +1669,12 @@ class Devices extends Console\Command\Command
 				'An unhandled error occurred',
 				[
 					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'devices-cmd',
+					'type' => 'install-cmd',
 					'exception' => BootstrapHelpers\Logger::buildException($ex),
 				],
 			);
 
-			$io->error($this->translator->translate('//viera-connector.cmd.devices.messages.remove.error'));
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.remove.device.error'));
 		} finally {
 			// Revert all changes when error occur
 			if ($this->getOrmConnection()->isTransactionActive()) {
@@ -1341,10 +1708,10 @@ class Devices extends Console\Command\Command
 		$table = new Console\Helper\Table($io);
 		$table->setHeaders([
 			'#',
-			$this->translator->translate('//viera-connector.cmd.devices.data.name'),
-			$this->translator->translate('//viera-connector.cmd.devices.data.model'),
-			$this->translator->translate('//viera-connector.cmd.devices.data.ipAddress'),
-			$this->translator->translate('//viera-connector.cmd.devices.data.encryption'),
+			$this->translator->translate('//viera-connector.cmd.install.data.name'),
+			$this->translator->translate('//viera-connector.cmd.install.data.model'),
+			$this->translator->translate('//viera-connector.cmd.install.data.ipAddress'),
+			$this->translator->translate('//viera-connector.cmd.install.data.encryption'),
 		]);
 
 		foreach ($devices as $index => $device) {
@@ -1362,10 +1729,296 @@ class Devices extends Console\Command\Command
 		$io->newLine();
 	}
 
+	/**
+	 * @throws BootstrapExceptions\InvalidState
+	 * @throws Console\Exception\ExceptionInterface
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidState
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 */
+	private function discoverDevices(Style\SymfonyStyle $io, Entities\VieraConnector $connector): void
+	{
+		if ($this->output === null) {
+			throw new Exceptions\InvalidState('Something went wrong, console output is not configured');
+		}
+
+		$executedTime = $this->dateTimeFactory->getNow();
+
+		$symfonyApp = $this->getApplication();
+
+		if ($symfonyApp === null) {
+			throw new Exceptions\InvalidState('Something went wrong, console app is not configured');
+		}
+
+		$serviceCmd = $symfonyApp->find(DevicesCommands\Connector::NAME);
+
+		$result = $serviceCmd->run(new Input\ArrayInput([
+			'--connector' => $connector->getId()->toString(),
+			'--mode' => DevicesCommands\Connector::MODE_DISCOVER,
+			'--no-interaction' => true,
+			'--quiet' => true,
+		]), $this->output);
+
+		$this->databaseHelper->clear();
+
+		if ($result !== Console\Command\Command::SUCCESS) {
+			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.discover.error'));
+
+			return;
+		}
+
+		$io->newLine();
+
+		$table = new Console\Helper\Table($io);
+		$table->setHeaders([
+			'#',
+			$this->translator->translate('//viera-connector.cmd.install.data.id'),
+			$this->translator->translate('//viera-connector.cmd.install.data.name'),
+			$this->translator->translate('//viera-connector.cmd.install.data.model'),
+			$this->translator->translate('//viera-connector.cmd.install.data.ipAddress'),
+			$this->translator->translate('//viera-connector.cmd.install.data.encryption'),
+		]);
+
+		$foundDevices = 0;
+
+		$findDevicesQuery = new Queries\Entities\FindDevices();
+		$findDevicesQuery->byConnectorId($connector->getId());
+
+		$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+
+		foreach ($devices as $device) {
+			$createdAt = $device->getCreatedAt();
+
+			if (
+				$createdAt !== null
+				&& $createdAt->getTimestamp() > $executedTime->getTimestamp()
+			) {
+				$foundDevices++;
+
+				$isEncrypted = $device->isEncrypted();
+
+				$table->addRow([
+					$foundDevices,
+					$device->getId()->toString(),
+					$device->getName() ?? $device->getIdentifier(),
+					$device->getModel() ?? 'N/A',
+					$device->getIpAddress() ?? 'N/A',
+					$isEncrypted ? 'yes' : 'no',
+				]);
+			}
+		}
+
+		if ($foundDevices > 0) {
+			$io->newLine();
+
+			$io->info(sprintf(
+				$this->translator->translate('//viera-connector.cmd.install.messages.foundDevices'),
+				$foundDevices,
+			));
+
+			$table->render();
+
+			$io->newLine();
+
+		} else {
+			$io->info($this->translator->translate('//viera-connector.cmd.install.messages.noDevicesFound'));
+		}
+
+		$io->success($this->translator->translate('//viera-connector.cmd.install.messages.discover.success'));
+	}
+
+	/**
+	 * @throws BootstrapExceptions\InvalidState
+	 * @throws Console\Exception\ExceptionInterface
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
+	 * @throws Exceptions\InvalidState
+	 * @throws Exceptions\Runtime
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws RuntimeException
+	 */
+	private function askInstallAction(Style\SymfonyStyle $io): void
+	{
+		$question = new Console\Question\ChoiceQuestion(
+			$this->translator->translate('//viera-connector.cmd.base.questions.whatToDo'),
+			[
+				0 => $this->translator->translate('//viera-connector.cmd.install.actions.create.connector'),
+				1 => $this->translator->translate('//viera-connector.cmd.install.actions.update.connector'),
+				2 => $this->translator->translate('//viera-connector.cmd.install.actions.remove.connector'),
+				3 => $this->translator->translate('//viera-connector.cmd.install.actions.manage.connector'),
+				4 => $this->translator->translate('//viera-connector.cmd.install.actions.list.connectors'),
+				5 => $this->translator->translate('//viera-connector.cmd.install.actions.nothing'),
+			],
+			5,
+		);
+
+		$question->setErrorMessage(
+			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+		);
+
+		$whatToDo = $io->askQuestion($question);
+
+		if (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.create.connector',
+			)
+			|| $whatToDo === '0'
+		) {
+			$this->createConnector($io);
+
+			$this->askInstallAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.update.connector',
+			)
+			|| $whatToDo === '1'
+		) {
+			$this->editConnector($io);
+
+			$this->askInstallAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.remove.connector',
+			)
+			|| $whatToDo === '2'
+		) {
+			$this->deleteConnector($io);
+
+			$this->askInstallAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.manage.connector',
+			)
+			|| $whatToDo === '3'
+		) {
+			$this->manageConnector($io);
+
+			$this->askInstallAction($io);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.list.connectors',
+			)
+			|| $whatToDo === '4'
+		) {
+			$this->listConnectors($io);
+
+			$this->askInstallAction($io);
+		}
+	}
+
+	/**
+	 * @throws BootstrapExceptions\InvalidState
+	 * @throws Console\Exception\ExceptionInterface
+	 * @throws DBAL\Exception
+	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
+	 * @throws Exceptions\InvalidState
+	 * @throws Exceptions\Runtime
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws RuntimeException
+	 */
+	private function askManageConnectorAction(
+		Style\SymfonyStyle $io,
+		Entities\VieraConnector $connector,
+	): void
+	{
+		$question = new Console\Question\ChoiceQuestion(
+			$this->translator->translate('//viera-connector.cmd.base.questions.whatToDo'),
+			[
+				0 => $this->translator->translate('//viera-connector.cmd.install.actions.create.device'),
+				1 => $this->translator->translate('//viera-connector.cmd.install.actions.update.device'),
+				2 => $this->translator->translate('//viera-connector.cmd.install.actions.remove.device'),
+				3 => $this->translator->translate('//viera-connector.cmd.install.actions.list.devices'),
+				4 => $this->translator->translate('//viera-connector.cmd.install.actions.discover.devices'),
+				5 => $this->translator->translate('//viera-connector.cmd.install.actions.nothing'),
+			],
+			5,
+		);
+
+		$question->setErrorMessage(
+			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+		);
+
+		$whatToDo = $io->askQuestion($question);
+
+		if (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.create.device',
+			)
+			|| $whatToDo === '0'
+		) {
+			$this->createDevice($io, $connector);
+
+			$this->askManageConnectorAction($io, $connector);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.update.device',
+			)
+			|| $whatToDo === '1'
+		) {
+			$this->editDevice($io, $connector);
+
+			$this->askManageConnectorAction($io, $connector);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.remove.device',
+			)
+			|| $whatToDo === '2'
+		) {
+			$this->deleteDevice($io, $connector);
+
+			$this->askManageConnectorAction($io, $connector);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.list.devices',
+			)
+			|| $whatToDo === '3'
+		) {
+			$this->listDevices($io, $connector);
+
+			$this->askManageConnectorAction($io, $connector);
+
+		} elseif (
+			$whatToDo === $this->translator->translate(
+				'//viera-connector.cmd.install.actions.discover.devices',
+			)
+			|| $whatToDo === '4'
+		) {
+			$this->discoverDevices($io, $connector);
+
+			$this->askManageConnectorAction($io, $connector);
+		}
+	}
+
+	private function askConnectorName(
+		Style\SymfonyStyle $io,
+		Entities\VieraConnector|null $connector = null,
+	): string|null
+	{
+		$question = new Console\Question\Question(
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.connector.name'),
+			$connector?->getName(),
+		);
+
+		$name = $io->askQuestion($question);
+
+		return strval($name) === '' ? null : strval($name);
+	}
+
 	private function askDeviceName(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string|null
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.name'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.name'),
 			$device?->getName(),
 		);
 
@@ -1378,10 +2031,10 @@ class Devices extends Console\Command\Command
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
-	private function askIpAddress(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string
+	private function askDeviceIpAddress(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.ipAddress'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.ipAddress'),
 			$device?->getIpAddress(),
 		);
 		$question->setValidator(function (string|null $answer): string {
@@ -1403,10 +2056,10 @@ class Devices extends Console\Command\Command
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
-	private function askPort(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): int
+	private function askDevicePort(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): int
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.port'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.port'),
 			$device?->getPort(),
 		);
 		$question->setValidator(function (string|null $answer): int {
@@ -1428,10 +2081,10 @@ class Devices extends Console\Command\Command
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 */
-	private function askMacAddress(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string
+	private function askDeviceMacAddress(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.macAddress'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.macAddress'),
 			$device?->getMacAddress(),
 		);
 		$question->setValidator(function (string|null $answer): string {
@@ -1449,14 +2102,14 @@ class Devices extends Console\Command\Command
 		return strval($macAddress);
 	}
 
-	private function askPinCode(
+	private function askDevicePinCode(
 		Style\SymfonyStyle $io,
 		Entities\VieraConnector $connector,
 		API\TelevisionApi $televisionApi,
 	): Entities\API\AuthorizePinCode
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.pinCode'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.pinCode'),
 		);
 		$question->setValidator(
 			function (string|null $answer) use ($connector, $televisionApi): Entities\API\AuthorizePinCode {
@@ -1492,10 +2145,10 @@ class Devices extends Console\Command\Command
 		return $authorization;
 	}
 
-	private function askHdmiName(Style\SymfonyStyle $io): string
+	private function askDeviceHdmiName(Style\SymfonyStyle $io): string
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.provide.hdmiName'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.hdmiName'),
 		);
 		$question->setValidator(function (string|null $answer): string {
 			if ($answer !== null) {
@@ -1512,11 +2165,11 @@ class Devices extends Console\Command\Command
 		return strval($ipAddress);
 	}
 
-	private function askHdmiIndex(Style\SymfonyStyle $io, string $name): int
+	private function askDeviceHdmiIndex(Style\SymfonyStyle $io, string $name): int
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate(
-				'//viera-connector.cmd.devices.questions.provide.hdmiNumber',
+				'//viera-connector.cmd.install.questions.provide.device.hdmiNumber',
 				['name' => $name],
 			),
 		);
@@ -1569,10 +2222,11 @@ class Devices extends Console\Command\Command
 		}
 
 		$question = new Console\Question\ChoiceQuestion(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.select.connector'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.select.item.connector'),
 			array_values($connectors),
 			count($connectors) === 1 ? 0 : null,
 		);
+
 		$question->setErrorMessage(
 			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 		);
@@ -1639,7 +2293,7 @@ class Devices extends Console\Command\Command
 		);
 		usort(
 			$connectorDevices,
-			static fn (DevicesEntities\Devices\Device $a, DevicesEntities\Devices\Device $b): int => $a->getIdentifier() <=> $b->getIdentifier()
+			static fn (Entities\VieraDevice $a, Entities\VieraDevice $b): int => $a->getIdentifier() <=> $b->getIdentifier()
 		);
 
 		foreach ($connectorDevices as $device) {
@@ -1652,10 +2306,11 @@ class Devices extends Console\Command\Command
 		}
 
 		$question = new Console\Question\ChoiceQuestion(
-			$this->translator->translate('//viera-connector.cmd.devices.questions.select.device'),
+			$this->translator->translate('//viera-connector.cmd.install.questions.select.item.device'),
 			array_values($devices),
 			count($devices) === 1 ? 0 : null,
 		);
+
 		$question->setErrorMessage(
 			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 		);
@@ -1704,79 +2359,6 @@ class Devices extends Console\Command\Command
 		assert($device instanceof Entities\VieraDevice);
 
 		return $device;
-	}
-
-	/**
-	 * @throws DBAL\Exception
-	 * @throws DevicesExceptions\InvalidState
-	 * @throws Exceptions\Runtime
-	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
-	 * @throws RuntimeException
-	 */
-	private function askConnectorAction(
-		Style\SymfonyStyle $io,
-		Entities\VieraConnector $connector,
-	): void
-	{
-		$question = new Console\Question\ChoiceQuestion(
-			$this->translator->translate('//viera-connector.cmd.base.questions.whatToDo'),
-			[
-				0 => $this->translator->translate('//viera-connector.cmd.devices.actions.create.device'),
-				1 => $this->translator->translate('//viera-connector.cmd.devices.actions.update.device'),
-				2 => $this->translator->translate('//viera-connector.cmd.devices.actions.remove.device'),
-				3 => $this->translator->translate('//viera-connector.cmd.devices.actions.list.devices'),
-				4 => $this->translator->translate('//viera-connector.cmd.devices.actions.nothing'),
-			],
-			4,
-		);
-
-		$question->setErrorMessage(
-			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
-		);
-
-		$whatToDo = $io->askQuestion($question);
-
-		if (
-			$whatToDo === $this->translator->translate(
-				'//viera-connector.cmd.devices.actions.create.device',
-			)
-			|| $whatToDo === '0'
-		) {
-			$this->createDevice($io, $connector);
-
-			$this->askConnectorAction($io, $connector);
-
-		} elseif (
-			$whatToDo === $this->translator->translate(
-				'//viera-connector.cmd.devices.actions.update.device',
-			)
-			|| $whatToDo === '1'
-		) {
-			$this->editDevice($io, $connector);
-
-			$this->askConnectorAction($io, $connector);
-
-		} elseif (
-			$whatToDo === $this->translator->translate(
-				'//viera-connector.cmd.devices.actions.remove.device',
-			)
-			|| $whatToDo === '2'
-		) {
-			$this->deleteDevice($io, $connector);
-
-			$this->askConnectorAction($io, $connector);
-
-		} elseif (
-			$whatToDo === $this->translator->translate(
-				'//viera-connector.cmd.devices.actions.list.devices',
-			)
-			|| $whatToDo === '3'
-		) {
-			$this->listDevices($io, $connector);
-
-			$this->askConnectorAction($io, $connector);
-		}
 	}
 
 	/**

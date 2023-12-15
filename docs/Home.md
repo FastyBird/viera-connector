@@ -23,42 +23,38 @@ A device is an entity that represents a physical Panasonic Viera television.
 To use Panasonic Viera televisions with the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem, you will need to configure at least one connector.
 The connector can be configured using the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) user interface or through the console.
 
-## Configuring the Connector through the Console
+## Configuring the Connectors and Televisions through the Console
 
 To configure the connector through the console, run the following command:
 
 ```shell
-php bin/fb-console fb:viera-connector:initialize
+php bin/fb-console fb:viera-connector:install
 ```
 
 > **NOTE:**
 The path to the console command may vary depending on your FastyBird application distribution. For more information, refer to the FastyBird documentation.
 
-The console will ask you to confirm that you want to continue with the configuration.
+After triggering the command you will get information message:
 
 ```shell
-Viera connector - initialization
-================================
+Viera connector - installer
+===========================
 
- ! [NOTE] This action will create|update|delete connector configuration.                                                       
+ ! [NOTE] This action will create|update|delete connector configuration                                                 
 
- Would you like to continue? (yes/no) [no]:
- > y
-```
-
-You will then be prompted to choose an action:
-
-```shell
  What would you like to do? [Nothing]:
-  [0] Create new connector configuration
-  [1] Edit existing connector configuration
-  [2] Delete existing connector configuration
-  [3] List Viera connectors
-  [4] Nothing
+  [0] Create connector
+  [1] Edit connector
+  [2] Delete connector
+  [3] Manage connector
+  [4] List connectors
+  [5] Nothing
  > 0
 ```
 
-You will then be asked to provide a connector identifier and name:
+### Create connector
+
+If you choose to create a new connector, you will be asked to provide a connector identifier and name:
 
 ```shell
  Provide connector identifier:
@@ -73,8 +69,86 @@ You will then be asked to provide a connector identifier and name:
 After providing the necessary information, your new Panasonic Viera connector will be ready for use.
 
 ```shell
- [OK] New connector "My Viera" was successfully created                                                                
+ [OK] New connector "My Viera" was successfully created
 ```
+
+### Create television
+
+After new connector is created you will be asked if you want to create new television:
+
+```shell
+ Would you like to configure connector television(s)? (yes/no) [yes]:
+ > 
+```
+
+Or you could choose to manage connector devices from the main menu.
+
+Now you will be asked to provide some device details:
+
+```shell
+ Provide television IP address:
+ > 10.10.0.2
+```
+
+```shell
+ Would you like to configure HDMI inputs? (yes/no) [no]:
+ > y
+```
+
+If you want to configure HDMI inputs you could define one, two or all inputs what you television have
+
+```shell
+ ! [NOTE] Now you have to provide name for configured HDMI input and its number. HDMI number is related to you          
+ !        television                                                                                                    
+
+ Provide name for HDMI input:
+ > HDMI 1
+```
+
+```shell
+ Provide number for "HDMI 1" HDMI input:
+ > 1
+```
+
+```shell
+ Would you like to configure another HDMI input? (yes/no) [no]:
+ > n
+```
+> **NOTE:**
+You could configure all or only some HDMI inputs.
+
+```shell
+ Would you like to configure television MAC address? (yes/no) [no]:
+ > y
+```
+
+> **NOTE:**
+MAC address will be used for Wake on Lan action which will turn you television on.
+Some older models does not support to turn on action, therefore MAC address have to be configured
+
+```shell
+ Provide television MAC address in format: 01:23:45:67:89:ab:
+ > 28:24:ff:38:5e:27
+```
+
+If there are no errors, you will receive a success message.
+
+```shell
+ [OK] Television "49DX600_Series" was successfully created
+```
+
+If you television require PIN code authentication you will be asked to provide pin which will be showed on you television screen
+
+```shell
+ Provide television PIN code displayed on you TV:
+ > 1234
+```
+
+When valid PIN code is provided, pairing will be successfully finished.
+
+### Connectors, Devices and Registers management
+
+With this console command you could manage all your connectors, their devices and registers. Just use the main menu to navigate to proper action.
 
 ## Configuring the Connector with the FastyBird User Interface
 
@@ -170,117 +244,6 @@ Your television have to be turned on and on the screen you will find (in bottom 
 
  [OK] Televisions discovery was successfully finished
 ```
-
-# Devices Configuration
-
-If you do not want to use automatic televisions discovery, you could configure your televisions manually.
-This can be accomplished either through a console command or through the user interface of the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things).
-
-## Manual Console Command
-
-To manually trigger device configuration, use the following command:
-
-```shell
-php bin/fb-console fb:viera-connector:devices
-```
-
-> **NOTE:**
-The path to the console command may vary depending on your FastyBird application distribution. For more information, refer to the FastyBird documentation.
-
-The console will prompt for confirmation before proceeding with the devices configuration process.
-
-```shell
-Viera connector - televisions management
-========================================
-
- ! [NOTE] This action will create|update|delete connector device.                                                       
-
- Would you like to continue? (yes/no) [no]:
- > y
-```
-
-You will then be prompted to select connector to manage devices.
-
-```shell
- Please select connector under which you want to manage devices:
-  [0] my-viera [My Viera]
- > 0
-```
-
-You will then be prompted to select device management action.
-
-```shell
- What would you like to do? [Nothing]:
-  [0] Create new television
-  [1] Edit existing television
-  [2] Delete existing television
-  [3] List televisions
-  [4] Nothing
- > 0
-```
-
-Now you will be asked to provide some device details:
-
-```shell
- Provide television IP address:
- > 10.10.0.2
-```
-
-```shell
- Would you like to configure HDMI inputs? (yes/no) [no]:
- > y
-```
-
-If you want to configure HDMI inputs you could define one, two or all inputs what you television have
-
-```shell
- ! [NOTE] Now you have to provide name for configured HDMI input and its number. HDMI number is related to you          
- !        television                                                                                                    
-
- Provide name for HDMI input:
- > HDMI 1
-```
-
-```shell
- Provide number for "HDMI 1" HDMI input:
- > 1
-```
-
-```shell
- Would you like to configure another HDMI input? (yes/no) [no]:
- > n
-```
-> **NOTE:**
-You could configure all or only some HDMI inputs.
-
-```shell
- Would you like to configure television MAC address? (yes/no) [no]:
- > y
-```
-
-> **NOTE:**
-MAC address will be used for Wake on Lan action which will turn you television on.
-Some older models does not support to turn on action, therefore MAC address have to be configured
-
-```shell
- Provide television MAC address in format: 01:23:45:67:89:ab:
- > 28:24:ff:38:5e:27
-```
-
-If there are no errors, you will receive a success message.
-
-```shell
- [OK] Television "49DX600_Series" was successfully created
-```
-
-If you television require PIN code authentication you will be asked to provide pin which will be showed on you television screen
-
-```shell
- Provide television PIN code displayed on you TV:
- > 1234
-```
-
-When valid PIN code is provided, pairing will be successfully finished.
 
 # Troubleshooting
 
