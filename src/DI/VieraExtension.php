@@ -15,6 +15,7 @@
 
 namespace FastyBird\Connector\Viera\DI;
 
+use Contributte\Translation;
 use Doctrine\Persistence;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
@@ -46,7 +47,7 @@ use const DIRECTORY_SEPARATOR;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class VieraExtension extends DI\CompilerExtension
+class VieraExtension extends DI\CompilerExtension implements Translation\DI\TranslationProviderInterface
 {
 
 	public const NAME = 'fbVieraConnector';
@@ -324,6 +325,16 @@ class VieraExtension extends DI\CompilerExtension
 				'FastyBird\Connector\Viera\Entities',
 			]);
 		}
+	}
+
+	/**
+	 * @return array<string>
+	 */
+	public function getTranslationResources(): array
+	{
+		return [
+			__DIR__ . '/../Translations/',
+		];
 	}
 
 }
