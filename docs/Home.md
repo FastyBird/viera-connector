@@ -12,7 +12,7 @@ The connector uses the following naming convention for its entities:
 
 ## Connector
 
-A connector is an entity that manages communication with Panasonic Viera televisons. It needs to be configured for a specific device interface.
+A connector is an entity that manages communication with Panasonic Viera televisions. It needs to be configured for a specific device interface.
 
 ## Device
 
@@ -81,9 +81,9 @@ After new connector is created you will be asked if you want to create new telev
  > 
 ```
 
-Or you could choose to manage connector devices from the main menu.
+Or you could choose to manage connector televisions from the main menu.
 
-Now you will be asked to provide some device details:
+Now you will be asked to provide some television details:
 
 ```shell
  Provide television IP address:
@@ -146,9 +146,9 @@ If you television require PIN code authentication you will be asked to provide p
 
 When valid PIN code is provided, pairing will be successfully finished.
 
-### Connectors, Devices and Registers management
+### Connectors and Televisions management
 
-With this console command you could manage all your connectors, their devices and registers. Just use the main menu to navigate to proper action.
+With this console command you could manage all your connectors and their televisions. Just use the main menu to navigate to proper action.
 
 ## Configuring the Connector with the FastyBird User Interface
 
@@ -167,14 +167,14 @@ On your TV go to `Menu -> Network -> TV Remote App Settings` and make sure that 
 
 Then, go to `Menu -> Network -> Network Status -> Status Details` and take note of your TV ip address.
 
-# Devices Discovery
+# Televisions Discovery
 
 The Panasonic Viera connector includes a built-in feature for automatic televisions discovery. This feature can be triggered manually
 through a console command or from the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) user interface.
 
 ## Manual Console Command
 
-To manually trigger device discovery, use the following command:
+To manually trigger televisions discovery, use the following command:
 
 ```shell
 php bin/fb-console fb:viera-connector:discover
@@ -189,7 +189,7 @@ The console will prompt for confirmation before proceeding with the discovery pr
 Viera connector - discovery
 ===========================
 
- ! [NOTE] This action will run connector devices discovery.
+ ! [NOTE] This action will run connector televisions discovery.
 
  Would you like to continue? (yes/no) [no]:
  > y
@@ -198,12 +198,12 @@ Viera connector - discovery
 You will then be prompted to select the connector to use for the discovery process.
 
 ```shell
- Would you like to discover devices with "My Viera" connector (yes/no) [no]:
+ Would you like to discover televisions with "My Viera" connector (yes/no) [no]:
  > y
 ```
 
-The connector will then begin searching for new Panasonic Viera devices, which may take a few minutes to complete. Once finished,
-a list of found devices will be displayed.
+The connector will then begin searching for new Panasonic Viera televisions, which may take a few minutes to complete. Once finished,
+a list of found televisions will be displayed.
 
 ```shell
  [INFO] Starting Viera connector discovery...
@@ -226,7 +226,7 @@ a list of found devices will be displayed.
  > y                                                    
 ```
 
-Now that all newly discovered devices have been found, they are available in the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) system and can be utilized.
+Now that all newly discovered televisions have been found, they are available in the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) system and can be utilized.
 
 If some televisions require PIN code authentication you will be prompted if you want to pair these televisions. If you do not finish this pairing you will not be able to fully control this televisions.
 
@@ -261,4 +261,4 @@ So if you are using [FastyBird](https://www.fastybird.com) application in Docker
 In some cases, some models could have problems to remotely turn on via command from connector. So this connector is supporting WoL (Wake on Lan). So you have to provide television MAC address.
 You could find this address in you router clients info or is available also in network status in some televisions models.
 
-This MAC address could be entered via console edit device command or via user interface.
+This MAC address could be entered via console edit television command or via user interface.
