@@ -104,6 +104,7 @@ final class StoreChannelPropertyState implements Queue\Consumer
 
 		$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
 		$findChannelQuery->forDevice($device);
+		$findChannelQuery->byType(Entities\VieraChannel::TYPE);
 		if ($entity->getChannel() instanceof Uuid\UuidInterface) {
 			$findChannelQuery->byId($entity->getChannel());
 		} else {

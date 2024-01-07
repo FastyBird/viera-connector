@@ -237,6 +237,9 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		$builder->addDefinition($this->prefix('schemas.device.viera'), new DI\Definitions\ServiceDefinition())
 			->setType(Schemas\VieraDevice::class);
 
+		$builder->addDefinition($this->prefix('schemas.channel.viera'), new DI\Definitions\ServiceDefinition())
+			->setType(Schemas\VieraChannel::class);
+
 		/**
 		 * JSON-API HYDRATORS
 		 */
@@ -246,6 +249,9 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 
 		$builder->addDefinition($this->prefix('hydrators.device.viera'), new DI\Definitions\ServiceDefinition())
 			->setType(Hydrators\VieraDevice::class);
+
+		$builder->addDefinition($this->prefix('hydrators.channel.viera'), new DI\Definitions\ServiceDefinition())
+			->setType(Hydrators\VieraChannel::class);
 
 		/**
 		 * HELPERS

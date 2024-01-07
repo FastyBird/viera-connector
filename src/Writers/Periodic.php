@@ -102,12 +102,14 @@ abstract class Periodic implements Writer
 
 			$findChannelsQuery = new DevicesQueries\Configuration\FindChannels();
 			$findChannelsQuery->forDevice($device);
+			$findChannelsQuery->byType(Entities\VieraChannel::TYPE);
 
 			$channels = $this->channelsConfigurationRepository->findAllBy($findChannelsQuery);
 
 			foreach ($channels as $channel) {
 				$findChannelPropertiesQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
 				$findChannelPropertiesQuery->forChannel($channel);
+				$findChannelPropertiesQuery->settable(true);
 
 				$properties = $this->channelsPropertiesConfigurationRepository->findAllBy(
 					$findChannelPropertiesQuery,
@@ -115,9 +117,7 @@ abstract class Periodic implements Writer
 				);
 
 				foreach ($properties as $property) {
-					if ($property->isSettable()) {
-						$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
-					}
+					$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
 				}
 			}
 		}

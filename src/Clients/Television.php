@@ -116,6 +116,7 @@ final class Television implements Client
 			$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
 			$findChannelQuery->forDevice($device);
 			$findChannelQuery->byIdentifier(Types\ChannelType::TELEVISION);
+			$findChannelQuery->byType(Entities\VieraChannel::TYPE);
 
 			$channel = $this->channelsConfigurationRepository->findOneBy($findChannelQuery);
 
@@ -136,6 +137,7 @@ final class Television implements Client
 
 			$findChannelPropertiesQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
 			$findChannelPropertiesQuery->forChannel($channel);
+			$findChannelPropertiesQuery->settable(true);
 
 			$properties = $this->channelsPropertiesConfigurationRepository->findAllBy(
 				$findChannelPropertiesQuery,
@@ -143,9 +145,7 @@ final class Television implements Client
 			);
 
 			foreach ($properties as $property) {
-				if ($property->isSettable()) {
-					$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
-				}
+				$this->properties[$device->getId()->toString()][$property->getId()->toString()] = $property;
 			}
 
 			$this->devices[$device->getId()->toString()] = $device;

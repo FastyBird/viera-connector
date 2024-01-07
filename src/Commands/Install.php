@@ -862,7 +862,7 @@ class Install extends Console\Command\Command
 			}
 
 			$channel = $this->channelsManager->create(Utils\ArrayHash::from([
-				'entity' => DevicesEntities\Channels\Channel::class,
+				'entity' => Entities\VieraChannel::class,
 				'device' => $device,
 				'identifier' => Types\ChannelType::TELEVISION,
 			]));
@@ -1021,11 +1021,11 @@ class Install extends Console\Command\Command
 			return;
 		}
 
-		$findChannel = new DevicesQueries\Entities\FindChannels();
+		$findChannel = new Queries\Entities\FindChannels();
 		$findChannel->forDevice($device);
 		$findChannel->byIdentifier(Types\ChannelType::TELEVISION);
 
-		$channel = $this->channelsRepository->findOneBy($findChannel);
+		$channel = $this->channelsRepository->findOneBy($findChannel, Entities\VieraChannel::class);
 
 		$authorization = null;
 
@@ -1512,6 +1512,7 @@ class Install extends Console\Command\Command
 
 			if ($channel === null) {
 				$channel = $this->channelsManager->create(Utils\ArrayHash::from([
+					'entity' => Entities\VieraChannel::class,
 					'device' => $device,
 					'identifier' => Types\ChannelType::TELEVISION,
 				]));
