@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Clients;
 
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 
 /**
  * Devices discovery client factory
@@ -28,6 +28,6 @@ use FastyBird\Connector\Viera\Entities;
 interface DiscoveryFactory
 {
 
-	public function create(Entities\VieraConnector $connector): Discovery;
+	public function create(MetadataDocuments\DevicesModule\Connector $connector): Discovery;
 
 }

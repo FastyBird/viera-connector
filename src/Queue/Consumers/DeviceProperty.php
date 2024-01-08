@@ -18,7 +18,6 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
-use FastyBird\Connector\Viera\Queries;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -110,11 +109,8 @@ trait DeviceProperty
 		}
 
 		if ($property === null) {
-			$findDeviceQuery = new Queries\Entities\FindDevices();
-			$findDeviceQuery->byId($deviceId);
-
-			$device = $this->devicesRepository->findOneBy(
-				$findDeviceQuery,
+			$device = $this->devicesRepository->find(
+				$deviceId,
 				Entities\VieraDevice::class,
 			);
 

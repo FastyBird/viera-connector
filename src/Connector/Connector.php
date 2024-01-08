@@ -133,6 +133,9 @@ final class Connector implements DevicesConnectors\Connector
 		);
 	}
 
+	/**
+	 * @throws DevicesExceptions\InvalidState
+	 */
 	public function discover(): void
 	{
 		assert($this->connector instanceof Entities\VieraConnector);
@@ -148,7 +151,28 @@ final class Connector implements DevicesConnectors\Connector
 			],
 		);
 
-		$this->client = $this->discoveryClientFactory->create($this->connector);
+		$findConnector = new DevicesQueries\Configuration\FindConnectors();
+		$findConnector->byId($this->connector->getId());
+		$findConnector->byType(Entities\VieraConnector::TYPE);
+
+		$connector = $this->connectorsConfigurationRepository->findOneBy($findConnector);
+
+		if ($connector === null) {
+			$this->logger->error(
+				'Connector could not be loaded',
+				[
+					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'type' => 'connector',
+					'connector' => [
+						'id' => $this->connector->getId()->toString(),
+					],
+				],
+			);
+
+			return;
+		}
+
+		$this->client = $this->discoveryClientFactory->create($connector);
 
 		$this->client->on('finished', function (): void {
 			$this->dispatcher?->dispatch(

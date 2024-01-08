@@ -17,7 +17,6 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
-use FastyBird\Connector\Viera\Queries;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
@@ -109,10 +108,7 @@ trait ChannelProperty
 		}
 
 		if ($property === null) {
-			$findChannelQuery = new Queries\Entities\FindChannels();
-			$findChannelQuery->byId($channelId);
-
-			$channel = $this->channelsRepository->findOneBy($findChannelQuery, Viera\Entities\VieraChannel::class);
+			$channel = $this->channelsRepository->find($channelId, Viera\Entities\VieraChannel::class);
 
 			if ($channel === null) {
 				$this->logger->error(

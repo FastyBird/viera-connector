@@ -24,6 +24,7 @@ use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Nette;
 use React\Datagram;
@@ -75,7 +76,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 	private Datagram\SocketInterface|null $sender = null;
 
 	public function __construct(
-		private readonly Entities\VieraConnector $connector,
+		private readonly MetadataDocuments\DevicesModule\Connector $connector,
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
 		private readonly Queue\Queue $queue,
 		private readonly Helpers\Entity $entityHelper,

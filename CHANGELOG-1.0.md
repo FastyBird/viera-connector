@@ -1,7 +1,7 @@
 # CHANGELOG FOR `1.0.X`
 
-## v1.0.0 (2022-11-16)
+## v1.0.0 (2023-12-23)
 
 #### TL;DR
 
-- Migrate code from Python implementation into PHP.
+- Initial release

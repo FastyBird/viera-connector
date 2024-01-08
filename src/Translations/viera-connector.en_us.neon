@@ -187,6 +187,8 @@ cmd:
                 hdmi: "Now you have to provide name for configured HDMI input and its number. HDMI number is related to you television."
                 macAddress: "MAC address will be used to turn on you television on."
             discover:
+                starting: "Starting Viera connector discovery..."
+                stopping: "Stopping Viera connector discovery..."
                 success: "Televisions discovery was successfully finished"
                 error: "Televisions discovery failed. An error was logged."
             noDevices: "No televisions registered in selected connector."
