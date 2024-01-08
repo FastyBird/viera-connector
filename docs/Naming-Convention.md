@@ -34,5 +34,5 @@ will log and error.
 ### Channel Property
 
 Channel related properties are used for storing actual state of Viera Television. It could be `volume state`, `actual output`
-or `power state`. This values are read from television and stored in system.
+or `power state`. These values are read from television and stored in system.
 

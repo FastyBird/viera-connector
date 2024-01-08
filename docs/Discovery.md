@@ -44,7 +44,7 @@ a list of found televisions will be displayed.
 [============================] 100% 1 min, 44 secs/1 min, 44 secs
 
 
- [INFO] Stopping Zigbee2MQTT connector discovery...
+ [INFO] Stopping Viera connector discovery...
 
 
 
