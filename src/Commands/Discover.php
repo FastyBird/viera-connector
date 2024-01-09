@@ -322,8 +322,6 @@ class Discover extends Console\Command\Command
 		MetadataDocuments\DevicesModule\Connector $connector,
 	): void
 	{
-		$io->newLine();
-
 		$table = new Console\Helper\Table($output);
 		$table->setHeaders([
 			'#',

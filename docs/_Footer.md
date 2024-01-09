@@ -5,4 +5,4 @@ Thank you for testing, reporting and contributing.
 
 ***
 Homepage [https://www.fastybird.com](https://www.fastybird.com) and
-repository [https://github.com/fastybird/zigbee2mqtt-connector](https://github.com/fastybird/zigbee2mqtt-connector).
+repository [https://github.com/fastybird/viera-connector](https://github.com/fastybird/viera-connector).
