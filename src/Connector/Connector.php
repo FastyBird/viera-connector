@@ -20,13 +20,10 @@ use FastyBird\Connector\Viera\Clients;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Writers;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Connectors as DevicesConnectors;
-use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Events as DevicesEvents;
-use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
-use FastyBird\Module\Devices\Models as DevicesModels;
-use FastyBird\Module\Devices\Queries as DevicesQueries;
 use Nette;
 use Psr\EventDispatcher as PsrEventDispatcher;
 use React\EventLoop;
@@ -55,26 +52,22 @@ final class Connector implements DevicesConnectors\Connector
 	private EventLoop\TimerInterface|null $consumersTimer = null;
 
 	public function __construct(
-		private readonly DevicesEntities\Connectors\Connector $connector,
+		private readonly MetadataDocuments\DevicesModule\Connector $connector,
 		private readonly Clients\ClientFactory $clientFactory,
 		private readonly Clients\DiscoveryFactory $discoveryClientFactory,
 		private readonly Writers\WriterFactory $writerFactory,
 		private readonly Queue\Queue $queue,
 		private readonly Queue\Consumers $consumers,
 		private readonly Viera\Logger $logger,
-		private readonly DevicesModels\Configuration\Connectors\Repository $connectorsConfigurationRepository,
 		private readonly EventLoop\LoopInterface $eventLoop,
 		private readonly PsrEventDispatcher\EventDispatcherInterface|null $dispatcher = null,
 	)
 	{
 	}
 
-	/**
-	 * @throws DevicesExceptions\InvalidState
-	 */
 	public function execute(): void
 	{
-		assert($this->connector instanceof Entities\VieraConnector);
+		assert($this->connector->getType() === Entities\VieraConnector::TYPE);
 
 		$this->logger->info(
 			'Starting Viera connector service',
@@ -87,31 +80,10 @@ final class Connector implements DevicesConnectors\Connector
 			],
 		);
 
-		$findConnector = new DevicesQueries\Configuration\FindConnectors();
-		$findConnector->byId($this->connector->getId());
-		$findConnector->byType(Entities\VieraConnector::TYPE);
-
-		$connector = $this->connectorsConfigurationRepository->findOneBy($findConnector);
-
-		if ($connector === null) {
-			$this->logger->error(
-				'Connector could not be loaded',
-				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'connector',
-					'connector' => [
-						'id' => $this->connector->getId()->toString(),
-					],
-				],
-			);
-
-			return;
-		}
-
-		$this->client = $this->clientFactory->create($connector);
+		$this->client = $this->clientFactory->create($this->connector);
 		$this->client->connect();
 
-		$this->writer = $this->writerFactory->create($connector);
+		$this->writer = $this->writerFactory->create($this->connector);
 		$this->writer->connect();
 
 		$this->consumersTimer = $this->eventLoop->addPeriodicTimer(
@@ -133,12 +105,9 @@ final class Connector implements DevicesConnectors\Connector
 		);
 	}
 
-	/**
-	 * @throws DevicesExceptions\InvalidState
-	 */
 	public function discover(): void
 	{
-		assert($this->connector instanceof Entities\VieraConnector);
+		assert($this->connector->getType() === Entities\VieraConnector::TYPE);
 
 		$this->logger->info(
 			'Starting Viera connector discovery',
@@ -151,28 +120,7 @@ final class Connector implements DevicesConnectors\Connector
 			],
 		);
 
-		$findConnector = new DevicesQueries\Configuration\FindConnectors();
-		$findConnector->byId($this->connector->getId());
-		$findConnector->byType(Entities\VieraConnector::TYPE);
-
-		$connector = $this->connectorsConfigurationRepository->findOneBy($findConnector);
-
-		if ($connector === null) {
-			$this->logger->error(
-				'Connector could not be loaded',
-				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-					'type' => 'connector',
-					'connector' => [
-						'id' => $this->connector->getId()->toString(),
-					],
-				],
-			);
-
-			return;
-		}
-
-		$this->client = $this->discoveryClientFactory->create($connector);
+		$this->client = $this->discoveryClientFactory->create($this->connector);
 
 		$this->client->on('finished', function (): void {
 			$this->dispatcher?->dispatch(
@@ -206,6 +154,8 @@ final class Connector implements DevicesConnectors\Connector
 
 	public function terminate(): void
 	{
+		assert($this->connector->getType() === Entities\VieraConnector::TYPE);
+
 		$this->client?->disconnect();
 
 		$this->writer?->disconnect();
