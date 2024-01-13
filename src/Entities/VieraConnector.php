@@ -25,7 +25,7 @@ use FastyBird\Module\Devices\Entities as DevicesEntities;
 class VieraConnector extends DevicesEntities\Connectors\Connector
 {
 
-	public const TYPE = 'viera';
+	public const TYPE = 'viera-connector';
 
 	public function getType(): string
 	{

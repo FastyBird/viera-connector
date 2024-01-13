@@ -32,7 +32,7 @@ use function is_string;
 class VieraDevice extends DevicesEntities\Devices\Device
 {
 
-	public const TYPE = 'viera';
+	public const TYPE = 'viera-connector';
 
 	public const DEFAULT_PORT = 55_000;
 

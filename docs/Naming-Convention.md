@@ -18,7 +18,7 @@ Channel entity is here to separate logical parts of the Viera Televisions like `
 ## Property
 
 A property in the [FastyBird](https://www.fastybird.com) [IoT](https://en.wikipedia.org/wiki/Internet_of_things) ecosystem refers to a entity which is holding configuration values or
-device actual state of a device. Connector, Device and Channel entity has own Property entities.
+device actual state. Connector, Device and Channel entity has own Property entities.
 
 ### Connector Property
 
