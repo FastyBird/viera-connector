@@ -47,6 +47,7 @@
     "fastybird/datetime-factory": "^0.6",
     "fastybird/devices-module": "dev-main",
     "fastybird/metadata-library": "dev-main",
+    "fastybird/tools-library": "dev-main",
     "fig/http-message-util": "^1.1",
     "guzzlehttp/guzzle": "^7.5",
     "ipub/doctrine-crud": "^4.0",
