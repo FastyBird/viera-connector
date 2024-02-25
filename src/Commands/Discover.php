@@ -18,20 +18,22 @@ namespace FastyBird\Connector\Viera\Commands;
 use DateTimeInterface;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
+use FastyBird\Connector\Viera\Documents;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
-use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
+use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Commands as DevicesCommands;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
-use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\Types as DevicesTypes;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use IPub\DoctrineCrud\Exceptions as DoctrineCrudExceptions;
 use Nette\Localization;
@@ -42,6 +44,8 @@ use Symfony\Component\Console\Input;
 use Symfony\Component\Console\Output;
 use Symfony\Component\Console\Style;
 use Throwable;
+use TypeError;
+use ValueError;
 use function array_key_exists;
 use function array_key_first;
 use function array_search;
@@ -74,6 +78,7 @@ class Discover extends Console\Command\Command
 		private readonly Api\TelevisionApiFactory $televisionApiFactory,
 		private readonly Helpers\Device $deviceHelper,
 		private readonly Viera\Logger $logger,
+		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
 		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
 		private readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
 		private readonly DevicesModels\Configuration\Connectors\Repository $connectorsConfigurationRepository,
@@ -108,12 +113,16 @@ class Discover extends Console\Command\Command
 	}
 
 	/**
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws Console\Exception\InvalidArgumentException
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	protected function execute(Input\InputInterface $input, Output\OutputInterface $output): int
 	{
@@ -149,8 +158,7 @@ class Discover extends Console\Command\Command
 		) {
 			$connectorId = $input->getOption('connector');
 
-			$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
-			$findConnectorQuery->byType(Entities\VieraConnector::TYPE);
+			$findConnectorQuery = new Queries\Configuration\FindConnectors();
 
 			if (Uuid\Uuid::isValid($connectorId)) {
 				$findConnectorQuery->byId(Uuid\Uuid::fromString($connectorId));
@@ -158,7 +166,10 @@ class Discover extends Console\Command\Command
 				$findConnectorQuery->byIdentifier($connectorId);
 			}
 
-			$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
+			$connector = $this->connectorsConfigurationRepository->findOneBy(
+				$findConnectorQuery,
+				Documents\Connectors\Connector::class,
+			);
 
 			if ($connector === null) {
 				$io->warning(
@@ -170,14 +181,15 @@ class Discover extends Console\Command\Command
 		} else {
 			$connectors = [];
 
-			$findConnectorsQuery = new DevicesQueries\Configuration\FindConnectors();
-			$findConnectorsQuery->byType(Entities\VieraConnector::TYPE);
+			$findConnectorsQuery = new Queries\Configuration\FindConnectors();
 
-			$systemConnectors = $this->connectorsConfigurationRepository->findAllBy($findConnectorsQuery);
+			$systemConnectors = $this->connectorsConfigurationRepository->findAllBy(
+				$findConnectorsQuery,
+				Documents\Connectors\Connector::class,
+			);
 			usort(
 				$systemConnectors,
-				// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-				static fn (MetadataDocuments\DevicesModule\Connector $a, MetadataDocuments\DevicesModule\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
+				static fn (Documents\Connectors\Connector $a, Documents\Connectors\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
 			);
 
 			foreach ($systemConnectors as $connector) {
@@ -194,11 +206,13 @@ class Discover extends Console\Command\Command
 			if (count($connectors) === 1) {
 				$connectorIdentifier = array_key_first($connectors);
 
-				$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
+				$findConnectorQuery = new Queries\Configuration\FindConnectors();
 				$findConnectorQuery->byIdentifier($connectorIdentifier);
-				$findConnectorQuery->byType(Entities\VieraConnector::TYPE);
 
-				$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
+				$connector = $this->connectorsConfigurationRepository->findOneBy(
+					$findConnectorQuery,
+					Documents\Connectors\Connector::class,
+				);
 
 				if ($connector === null) {
 					$io->warning(
@@ -230,7 +244,7 @@ class Discover extends Console\Command\Command
 					$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 				);
 				$question->setValidator(
-					function (string|int|null $answer) use ($connectors): MetadataDocuments\DevicesModule\Connector {
+					function (string|int|null $answer) use ($connectors): Documents\Connectors\Connector {
 						if ($answer === null) {
 							throw new Exceptions\Runtime(
 								sprintf(
@@ -249,11 +263,13 @@ class Discover extends Console\Command\Command
 						$identifier = array_search($answer, $connectors, true);
 
 						if ($identifier !== false) {
-							$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
+							$findConnectorQuery = new Queries\Configuration\FindConnectors();
 							$findConnectorQuery->byIdentifier($identifier);
-							$findConnectorQuery->byType(Entities\VieraConnector::TYPE);
 
-							$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
+							$connector = $this->connectorsConfigurationRepository->findOneBy(
+								$findConnectorQuery,
+								Documents\Connectors\Connector::class,
+							);
 
 							if ($connector !== null) {
 								return $connector;
@@ -270,7 +286,7 @@ class Discover extends Console\Command\Command
 				);
 
 				$connector = $io->askQuestion($question);
-				assert($connector instanceof MetadataDocuments\DevicesModule\Connector);
+				assert($connector instanceof Documents\Connectors\Connector);
 			}
 		}
 
@@ -290,7 +306,7 @@ class Discover extends Console\Command\Command
 
 		$result = $serviceCmd->run(new Input\ArrayInput([
 			'--connector' => $connector->getId()->toString(),
-			'--mode' => DevicesCommands\Connector::MODE_DISCOVER,
+			'--mode' => DevicesTypes\ConnectorMode::DISCOVER->value,
 			'--no-interaction' => true,
 			'--quiet' => true,
 		]), $output);
@@ -311,15 +327,19 @@ class Discover extends Console\Command\Command
 	}
 
 	/**
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function showResults(
 		Style\SymfonyStyle $io,
 		Output\OutputInterface $output,
-		MetadataDocuments\DevicesModule\Connector $connector,
+		Documents\Connectors\Connector $connector,
 	): void
 	{
 		$table = new Console\Helper\Table($output);
@@ -335,11 +355,13 @@ class Discover extends Console\Command\Command
 		$foundDevices = 0;
 		$encryptedDevices = [];
 
-		$findDevicesQuery = new DevicesQueries\Configuration\FindDevices();
+		$findDevicesQuery = new Queries\Configuration\FindDevices();
 		$findDevicesQuery->forConnector($connector);
-		$findDevicesQuery->byType(Entities\VieraDevice::TYPE);
 
-		$devices = $this->devicesConfigurationRepository->findAllBy($findDevicesQuery);
+		$devices = $this->devicesConfigurationRepository->findAllBy(
+			$findDevicesQuery,
+			Documents\Devices\Device::class,
+		);
 
 		foreach ($devices as $device) {
 			$createdAt = $device->getCreatedAt();
@@ -396,16 +418,19 @@ class Discover extends Console\Command\Command
 	}
 
 	/**
-	 * @param array<MetadataDocuments\DevicesModule\Device> $encryptedDevices
+	 * @param array<Documents\Devices\Device> $encryptedDevices
 	 *
-	 * @throws DevicesExceptions\InvalidState
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function processEncryptedDevices(
 		Style\SymfonyStyle $io,
-		MetadataDocuments\DevicesModule\Connector $connector,
+		Documents\Connectors\Connector $connector,
 		array $encryptedDevices,
 	): void
 	{
@@ -419,8 +444,11 @@ class Discover extends Console\Command\Command
 		$continue = (bool) $io->askQuestion($question);
 
 		if ($continue) {
-			foreach ($encryptedDevices as $device) {
-				if ($this->deviceHelper->getIpAddress($device) === null) {
+			foreach ($encryptedDevices as $configuredDevice) {
+				$device = $this->devicesRepository->find($configuredDevice->getId());
+				assert($device instanceof Entities\Devices\Device);
+
+				if ($device->getIpAddress() === null) {
 					$io->error(
 						$this->translator->translate(
 							'//viera-connector.cmd.discover.messages.missingIpAddress',
@@ -441,8 +469,8 @@ class Discover extends Console\Command\Command
 				try {
 					$televisionApi = $this->televisionApiFactory->create(
 						$device->getIdentifier(),
-						$this->deviceHelper->getIpAddress($device),
-						$this->deviceHelper->getPort($device),
+						$device->getIpAddress(),
+						$device->getPort(),
 					);
 					$televisionApi->connect();
 				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
@@ -456,9 +484,9 @@ class Discover extends Console\Command\Command
 					$this->logger->error(
 						'Creating api client failed',
 						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
 							'type' => 'discovery-cmd',
-							'exception' => BootstrapHelpers\Logger::buildException($ex),
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
 						],
 					);
 
@@ -478,9 +506,9 @@ class Discover extends Console\Command\Command
 					$this->logger->error(
 						'Checking screen status failed',
 						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
 							'type' => 'discovery-cmd',
-							'exception' => BootstrapHelpers\Logger::buildException($ex),
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
 						],
 					);
 
@@ -522,9 +550,9 @@ class Discover extends Console\Command\Command
 					$this->logger->error(
 						'Preparing api request failed',
 						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
 							'type' => 'discovery-cmd',
-							'exception' => BootstrapHelpers\Logger::buildException($ex),
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
 						],
 					);
 
@@ -540,9 +568,9 @@ class Discover extends Console\Command\Command
 					$this->logger->error(
 						'Calling device api failed',
 						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
 							'type' => 'discovery-cmd',
-							'exception' => BootstrapHelpers\Logger::buildException($ex),
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
 						],
 					);
 
@@ -551,7 +579,7 @@ class Discover extends Console\Command\Command
 
 				$authorization = $this->askPinCode($io, $connector, $televisionApi);
 
-				$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+				$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 				$findDevicePropertyQuery->byDeviceId($device->getId());
 				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
 
@@ -561,9 +589,9 @@ class Discover extends Console\Command\Command
 					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 						'entity' => DevicesEntities\Devices\Properties\Variable::class,
 						'device' => $device,
-						'identifier' => Types\DevicePropertyIdentifier::APP_ID,
-						'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
-						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+						'identifier' => Types\DevicePropertyIdentifier::APP_ID->value,
+						'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
+						'dataType' => MetadataTypes\DataType::STRING,
 						'value' => $authorization->getAppId(),
 						'format' => null,
 					]));
@@ -573,7 +601,7 @@ class Discover extends Console\Command\Command
 					]));
 				}
 
-				$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+				$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 				$findDevicePropertyQuery->byDeviceId($device->getId());
 				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTION_KEY);
 
@@ -583,11 +611,11 @@ class Discover extends Console\Command\Command
 					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 						'entity' => DevicesEntities\Devices\Properties\Variable::class,
 						'device' => $device,
-						'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
+						'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
 						'name' => DevicesUtilities\Name::createName(
-							Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
+							Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
 						),
-						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+						'dataType' => MetadataTypes\DataType::STRING,
 						'value' => $authorization->getEncryptionKey(),
 						'format' => null,
 					]));
@@ -609,15 +637,15 @@ class Discover extends Console\Command\Command
 
 	private function askPinCode(
 		Style\SymfonyStyle $io,
-		MetadataDocuments\DevicesModule\Connector $connector,
+		Documents\Connectors\Connector $connector,
 		API\TelevisionApi $televisionApi,
-	): Entities\API\AuthorizePinCode
+	): API\Messages\Response\AuthorizePinCode
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate('//viera-connector.cmd.discover.questions.provide.pinCode'),
 		);
 		$question->setValidator(
-			function (string|null $answer) use ($connector, $televisionApi): Entities\API\AuthorizePinCode {
+			function (string|null $answer) use ($connector, $televisionApi): API\Messages\Response\AuthorizePinCode {
 				if ($answer !== null && $answer !== '') {
 					try {
 						return $televisionApi->authorizePinCode($answer, strval($this->challengeKey), false);
@@ -645,7 +673,7 @@ class Discover extends Console\Command\Command
 		);
 
 		$authorization = $io->askQuestion($question);
-		assert($authorization instanceof Entities\API\AuthorizePinCode);
+		assert($authorization instanceof API\Messages\Response\AuthorizePinCode);
 
 		return $authorization;
 	}

@@ -15,14 +15,13 @@
 
 namespace FastyBird\Connector\Viera\Commands;
 
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Documents;
 use FastyBird\Connector\Viera\Exceptions;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Module\Devices\Commands as DevicesCommands;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
-use FastyBird\Module\Devices\Queries as DevicesQueries;
 use Nette\Localization;
 use Ramsey\Uuid;
 use Symfony\Component\Console;
@@ -122,8 +121,7 @@ class Execute extends Console\Command\Command
 		) {
 			$connectorId = $input->getOption('connector');
 
-			$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
-			$findConnectorQuery->byType(Entities\VieraConnector::TYPE);
+			$findConnectorQuery = new Queries\Configuration\FindConnectors();
 
 			if (Uuid\Uuid::isValid($connectorId)) {
 				$findConnectorQuery->byId(Uuid\Uuid::fromString($connectorId));
@@ -131,7 +129,10 @@ class Execute extends Console\Command\Command
 				$findConnectorQuery->byIdentifier($connectorId);
 			}
 
-			$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
+			$connector = $this->connectorsConfigurationRepository->findOneBy(
+				$findConnectorQuery,
+				Documents\Connectors\Connector::class,
+			);
 
 			if ($connector === null) {
 				$io->warning(
@@ -143,14 +144,15 @@ class Execute extends Console\Command\Command
 		} else {
 			$connectors = [];
 
-			$findConnectorsQuery = new DevicesQueries\Configuration\FindConnectors();
-			$findConnectorsQuery->byType(Entities\VieraConnector::TYPE);
+			$findConnectorsQuery = new Queries\Configuration\FindConnectors();
 
-			$systemConnectors = $this->connectorsConfigurationRepository->findAllBy($findConnectorsQuery);
+			$systemConnectors = $this->connectorsConfigurationRepository->findAllBy(
+				$findConnectorsQuery,
+				Documents\Connectors\Connector::class,
+			);
 			usort(
 				$systemConnectors,
-				// phpcs:ignore SlevomatCodingStandard.Files.LineLength.LineTooLong
-				static fn (MetadataDocuments\DevicesModule\Connector $a, MetadataDocuments\DevicesModule\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
+				static fn (Documents\Connectors\Connector $a, Documents\Connectors\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
 			);
 
 			foreach ($systemConnectors as $connector) {
@@ -167,11 +169,13 @@ class Execute extends Console\Command\Command
 			if (count($connectors) === 1) {
 				$connectorIdentifier = array_key_first($connectors);
 
-				$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
+				$findConnectorQuery = new Queries\Configuration\FindConnectors();
 				$findConnectorQuery->byIdentifier($connectorIdentifier);
-				$findConnectorQuery->byType(Entities\VieraConnector::TYPE);
 
-				$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
+				$connector = $this->connectorsConfigurationRepository->findOneBy(
+					$findConnectorQuery,
+					Documents\Connectors\Connector::class,
+				);
 
 				if ($connector === null) {
 					$io->warning(
@@ -203,7 +207,7 @@ class Execute extends Console\Command\Command
 					$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 				);
 				$question->setValidator(
-					function (string|int|null $answer) use ($connectors): MetadataDocuments\DevicesModule\Connector {
+					function (string|int|null $answer) use ($connectors): Documents\Connectors\Connector {
 						if ($answer === null) {
 							throw new Exceptions\Runtime(
 								sprintf(
@@ -222,11 +226,13 @@ class Execute extends Console\Command\Command
 						$identifier = array_search($answer, $connectors, true);
 
 						if ($identifier !== false) {
-							$findConnectorQuery = new DevicesQueries\Configuration\FindConnectors();
+							$findConnectorQuery = new Queries\Configuration\FindConnectors();
 							$findConnectorQuery->byIdentifier($identifier);
-							$findConnectorQuery->byType(Entities\VieraConnector::TYPE);
 
-							$connector = $this->connectorsConfigurationRepository->findOneBy($findConnectorQuery);
+							$connector = $this->connectorsConfigurationRepository->findOneBy(
+								$findConnectorQuery,
+								Documents\Connectors\Connector::class,
+							);
 
 							if ($connector !== null) {
 								return $connector;
@@ -243,7 +249,7 @@ class Execute extends Console\Command\Command
 				);
 
 				$connector = $io->askQuestion($question);
-				assert($connector instanceof MetadataDocuments\DevicesModule\Connector);
+				assert($connector instanceof Documents\Connectors\Connector);
 			}
 		}
 

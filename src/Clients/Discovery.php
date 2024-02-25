@@ -15,26 +15,25 @@
 
 namespace FastyBird\Connector\Viera\Clients;
 
-use Evenement;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
+use FastyBird\Connector\Viera\Documents;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Services;
-use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Module\Devices\Events as DevicesEvents;
 use Nette;
+use Psr\EventDispatcher as PsrEventDispatcher;
 use React\Datagram;
 use React\EventLoop;
 use RuntimeException;
-use SplObjectStorage;
 use Throwable;
 use function array_key_exists;
 use function array_map;
-use function count;
 use function is_array;
 use function parse_url;
 use function preg_match;
@@ -52,11 +51,10 @@ use function trim;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class Discovery implements Evenement\EventEmitterInterface
+final class Discovery
 {
 
 	use Nette\SmartObject;
-	use Evenement\EventEmitterTrait;
 
 	private const MCAST_HOST = '239.255.255.250';
 
@@ -68,34 +66,29 @@ final class Discovery implements Evenement\EventEmitterInterface
 
 	private const MATCH_DEVICE_ID = '/USN:\suuid:(?<usn>[\da-zA-Z-]+)::urn/';
 
-	/** @var SplObjectStorage<Entities\Clients\DiscoveredDevice, null> */
-	private SplObjectStorage $discoveredLocalDevices;
-
 	private EventLoop\TimerInterface|null $handlerTimer = null;
 
 	private Datagram\SocketInterface|null $sender = null;
 
 	public function __construct(
-		private readonly MetadataDocuments\DevicesModule\Connector $connector,
+		private readonly Documents\Connectors\Connector $connector,
 		private readonly API\TelevisionApiFactory $televisionApiFactory,
 		private readonly Queue\Queue $queue,
-		private readonly Helpers\Entity $entityHelper,
+		private readonly Helpers\MessageBuilder $messageBuilder,
 		private readonly Viera\Logger $logger,
 		private readonly Services\MulticastFactory $multicastFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
+		private readonly PsrEventDispatcher\EventDispatcherInterface|null $dispatcher = null,
 	)
 	{
-		$this->discoveredLocalDevices = new SplObjectStorage();
 	}
 
 	public function discover(): void
 	{
-		$this->discoveredLocalDevices = new SplObjectStorage();
-
 		$this->logger->debug(
 			'Starting devices discovery',
 			[
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'source' => MetadataTypes\Sources\Connector::VIERA->value,
 				'type' => 'discovery-client',
 			],
 		);
@@ -107,9 +100,9 @@ final class Discovery implements Evenement\EventEmitterInterface
 			$this->logger->error(
 				'Could not create discovery server',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'discovery-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -135,7 +128,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 						array_key_exists(
 							'port',
 							$urlParts,
-						) ? $urlParts['port'] : Entities\VieraDevice::DEFAULT_PORT,
+						) ? $urlParts['port'] : Entities\Devices\Device::DEFAULT_PORT,
 					);
 				}
 			}
@@ -147,21 +140,12 @@ final class Discovery implements Evenement\EventEmitterInterface
 			async(function (): void {
 				$this->sender?->close();
 
-				$this->discoveredLocalDevices->rewind();
-
-				$devices = [];
-
-				foreach ($this->discoveredLocalDevices as $device) {
-					$devices[] = $device;
-				}
-
-				$this->discoveredLocalDevices = new SplObjectStorage();
-
-				if (count($devices) > 0) {
-					$this->handleFoundLocalDevices($devices);
-				}
-
-				$this->emit('finished', [$devices]);
+				$this->dispatcher?->dispatch(
+					new DevicesEvents\TerminateConnector(
+						MetadataTypes\Sources\Connector::VIERA,
+						'Devices discovery finished',
+					),
+				);
 			}),
 		);
 
@@ -205,9 +189,9 @@ final class Discovery implements Evenement\EventEmitterInterface
 				$this->logger->error(
 					'Checking TV status failed',
 					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'source' => MetadataTypes\Sources\Connector::VIERA->value,
 						'type' => 'discovery-client',
-						'exception' => BootstrapHelpers\Logger::buildException($ex),
+						'exception' => ApplicationHelpers\Logger::buildException($ex),
 						'device' => [
 							'id' => $id,
 							'host' => $host,
@@ -223,7 +207,7 @@ final class Discovery implements Evenement\EventEmitterInterface
 				$this->logger->error(
 					sprintf('The provided IP: %s:%d address is unreachable.', $host, $port),
 					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'source' => MetadataTypes\Sources\Connector::VIERA->value,
 						'type' => 'discovery-client',
 						'device' => [
 							'id' => $id,
@@ -255,9 +239,9 @@ final class Discovery implements Evenement\EventEmitterInterface
 			$this->logger->error(
 				'Preparing api request failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'discovery-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -266,9 +250,9 @@ final class Discovery implements Evenement\EventEmitterInterface
 			$this->logger->error(
 				'Calling device api failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'discovery-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 					'request' => [
 						'method' => $ex->getRequest()?->getMethod(),
 						'url' => $ex->getRequest() !== null ? strval($ex->getRequest()->getUri()) : null,
@@ -285,19 +269,20 @@ final class Discovery implements Evenement\EventEmitterInterface
 			$this->logger->error(
 				'Unhandled error occur',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'discovery-client',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
 			return;
 		}
 
-		$this->discoveredLocalDevices->attach(
-			$this->entityHelper->create(
-				Entities\Clients\DiscoveredDevice::class,
+		$this->queue->append(
+			$this->messageBuilder->create(
+				Queue\Messages\StoreDevice::class,
 				[
+					'connector' => $this->connector->getId(),
 					'identifier' => $id,
 					'ip_address' => $host,
 					'port' => $port,
@@ -305,10 +290,14 @@ final class Discovery implements Evenement\EventEmitterInterface
 					'model' => trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
 					'manufacturer' => $specs->getManufacturer(),
 					'serial_number' => $specs->getSerialNumber(),
+					'mac_address' => null,
 					'encrypted' => $needsAuthorization,
+					'app_id' => null,
+					'encryption_key' => null,
+					'hdmi' => [],
 					'applications' => $apps !== null
 						? array_map(
-							static fn (Entities\API\Application $application): array => [
+							static fn (API\Messages\Response\Application $application): array => [
 								'id' => $application->getId(),
 								'name' => $application->getName(),
 							],
@@ -318,44 +307,6 @@ final class Discovery implements Evenement\EventEmitterInterface
 				],
 			),
 		);
-	}
-
-	/**
-	 * @param array<Entities\Clients\DiscoveredDevice> $devices
-	 *
-	 * @throws Exceptions\Runtime
-	 */
-	private function handleFoundLocalDevices(array $devices): void
-	{
-		foreach ($devices as $device) {
-			$this->queue->append(
-				$this->entityHelper->create(
-					Entities\Messages\StoreDevice::class,
-					[
-						'connector' => $this->connector->getId(),
-						'identifier' => $device->getIdentifier(),
-						'ip_address' => $device->getIpAddress(),
-						'port' => $device->getPort(),
-						'name' => $device->getName(),
-						'model' => $device->getModel(),
-						'manufacturer' => $device->getManufacturer(),
-						'serial_number' => $device->getSerialNumber(),
-						'mac_address' => null,
-						'encrypted' => $device->isEncrypted(),
-						'app_id' => null,
-						'encryption_key' => null,
-						'hdmi' => [],
-						'applications' => array_map(
-							static fn (Entities\Clients\DeviceApplication $application): array => [
-								'id' => $application->getId(),
-								'name' => $application->getName(),
-							],
-							$device->getApplications(),
-						),
-					],
-				),
-			);
-		}
 	}
 
 }

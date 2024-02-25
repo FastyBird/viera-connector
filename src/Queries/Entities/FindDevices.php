@@ -21,7 +21,7 @@ use FastyBird\Module\Devices\Queries as DevicesQueries;
 /**
  * Find devices entities query
  *
- * @template T of Entities\VieraDevice
+ * @template T of Entities\Devices\Device
  * @extends  DevicesQueries\Entities\FindDevices<T>
  *
  * @package        FastyBird:VieraConnector!

@@ -17,16 +17,23 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Documents;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Library\Tools\Exceptions as ToolsExceptions;
+use FastyBird\Module\Devices\Documents as DevicesDocuments;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\Types as DevicesTypes;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette;
+use TypeError;
+use ValueError;
+use function React\Async\await;
 
 /**
  * Store device connection state message consumer
@@ -48,47 +55,54 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 		private readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
 		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
 		private readonly DevicesUtilities\DeviceConnection $deviceConnectionManager,
-		private readonly DevicesUtilities\DevicePropertiesStates $devicePropertiesStatesManager,
-		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
+		private readonly DevicesModels\States\Async\DevicePropertiesManager $devicePropertiesStatesManager,
+		private readonly DevicesModels\States\Async\ChannelPropertiesManager $channelPropertiesStatesManager,
 	)
 	{
 	}
 
 	/**
+	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DevicesExceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\Mapping
 	 * @throws MetadataExceptions\MalformedInput
+	 * @throws ToolsExceptions\InvalidArgument
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	public function consume(Entities\Messages\Entity $entity): bool
+	public function consume(Queue\Messages\Message $message): bool
 	{
-		if (!$entity instanceof Entities\Messages\StoreDeviceConnectionState) {
+		if (!$message instanceof Queue\Messages\StoreDeviceConnectionState) {
 			return false;
 		}
 
-		$findDeviceQuery = new DevicesQueries\Configuration\FindDevices();
-		$findDeviceQuery->byConnectorId($entity->getConnector());
-		$findDeviceQuery->byId($entity->getDevice());
-		$findDeviceQuery->byType(Entities\VieraDevice::TYPE);
+		$findDeviceQuery = new Queries\Configuration\FindDevices();
+		$findDeviceQuery->byConnectorId($message->getConnector());
+		$findDeviceQuery->byId($message->getDevice());
 
-		$device = $this->devicesConfigurationRepository->findOneBy($findDeviceQuery);
+		$device = $this->devicesConfigurationRepository->findOneBy(
+			$findDeviceQuery,
+			Documents\Devices\Device::class,
+		);
 
 		if ($device === null) {
 			$this->logger->error(
 				'Device could not be loaded',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'store-device-connection-state-message-consumer',
 					'connector' => [
-						'id' => $entity->getConnector()->toString(),
+						'id' => $message->getConnector()->toString(),
 					],
 					'device' => [
-						'id' => $entity->getDevice()->toString(),
+						'id' => $message->getDevice()->toString(),
 					],
-					'data' => $entity->toArray(),
+					'data' => $message->toArray(),
 				],
 			);
 
@@ -97,36 +111,42 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 
 		// Check device state...
 		if (
-			!$this->deviceConnectionManager->getState($device)->equals($entity->getState())
+			$this->deviceConnectionManager->getState($device) !== $message->getState()
 		) {
 			// ... and if it is not ready, set it to ready
 			$this->deviceConnectionManager->setState(
 				$device,
-				$entity->getState(),
+				$message->getState(),
 			);
 
 			if (
-				$entity->getState()->equalsValue(MetadataTypes\ConnectionState::STATE_DISCONNECTED)
-				|| $entity->getState()->equalsValue(MetadataTypes\ConnectionState::STATE_ALERT)
-				|| $entity->getState()->equalsValue(MetadataTypes\ConnectionState::STATE_UNKNOWN)
+				$message->getState() === DevicesTypes\ConnectionState::DISCONNECTED
+				|| $message->getState() === DevicesTypes\ConnectionState::ALERT
+				|| $message->getState() === DevicesTypes\ConnectionState::UNKNOWN
 			) {
 				$findDevicePropertiesQuery = new DevicesQueries\Configuration\FindDeviceDynamicProperties();
 				$findDevicePropertiesQuery->forDevice($device);
 
 				$properties = $this->devicesPropertiesConfigurationRepository->findAllBy(
 					$findDevicePropertiesQuery,
-					MetadataDocuments\DevicesModule\DeviceDynamicProperty::class,
+					DevicesDocuments\Devices\Properties\Dynamic::class,
 				);
 
 				foreach ($properties as $property) {
-					$this->devicePropertiesStatesManager->setValidState($property, false);
+					await($this->devicePropertiesStatesManager->setValidState(
+						$property,
+						false,
+						MetadataTypes\Sources\Connector::VIERA,
+					));
 				}
 
-				$findChannelsQuery = new DevicesQueries\Configuration\FindChannels();
+				$findChannelsQuery = new Queries\Configuration\FindChannels();
 				$findChannelsQuery->forDevice($device);
-				$findChannelsQuery->byType(Entities\VieraChannel::TYPE);
 
-				$channels = $this->channelsConfigurationRepository->findAllBy($findChannelsQuery);
+				$channels = $this->channelsConfigurationRepository->findAllBy(
+					$findChannelsQuery,
+					Documents\Channels\Channel::class,
+				);
 
 				foreach ($channels as $channel) {
 					$findChannelPropertiesQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
@@ -134,11 +154,15 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 
 					$properties = $this->channelsPropertiesConfigurationRepository->findAllBy(
 						$findChannelPropertiesQuery,
-						MetadataDocuments\DevicesModule\ChannelDynamicProperty::class,
+						DevicesDocuments\Channels\Properties\Dynamic::class,
 					);
 
 					foreach ($properties as $property) {
-						$this->channelPropertiesStatesManager->setValidState($property, false);
+						await($this->channelPropertiesStatesManager->setValidState(
+							$property,
+							false,
+							MetadataTypes\Sources\Connector::VIERA,
+						));
 					}
 				}
 			}
@@ -147,15 +171,15 @@ final class StoreDeviceConnectionState implements Queue\Consumer
 		$this->logger->debug(
 			'Consumed device connection state message',
 			[
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'source' => MetadataTypes\Sources\Connector::VIERA->value,
 				'type' => 'store-device-connection-state-message-consumer',
 				'connector' => [
-					'id' => $entity->getConnector()->toString(),
+					'id' => $message->getConnector()->toString(),
 				],
 				'device' => [
-					'id' => $entity->getDevice()->toString(),
+					'id' => $device->getId()->toString(),
 				],
-				'data' => $entity->toArray(),
+				'data' => $message->toArray(),
 			],
 		);
 

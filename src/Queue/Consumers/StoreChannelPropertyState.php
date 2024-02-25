@@ -15,23 +15,25 @@
 
 namespace FastyBird\Connector\Viera\Queue\Consumers;
 
+use BackedEnum;
 use FastyBird\Connector\Viera;
-use FastyBird\Connector\Viera\Entities;
+use FastyBird\Connector\Viera\Documents;
+use FastyBird\Connector\Viera\Exceptions;
+use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Queue;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
-use FastyBird\Library\Metadata\Utilities as MetadataUtilities;
+use FastyBird\Library\Tools\Exceptions as ToolsExceptions;
+use FastyBird\Module\Devices\Documents as DevicesDocuments;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
 use FastyBird\Module\Devices\States as DevicesStates;
-use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette;
 use Nette\Utils;
 use Ramsey\Uuid;
 use function array_merge;
-use function is_string;
+use function React\Async\await;
 
 /**
  * Store channel property state message consumer
@@ -51,7 +53,7 @@ final class StoreChannelPropertyState implements Queue\Consumer
 		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
 		private readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
 		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
-		private readonly DevicesUtilities\ChannelPropertiesStates $channelPropertiesStatesManager,
+		private readonly DevicesModels\States\Async\ChannelPropertiesManager $channelPropertiesStatesManager,
 	)
 	{
 	}
@@ -59,80 +61,88 @@ final class StoreChannelPropertyState implements Queue\Consumer
 	/**
 	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
-	 * @throws MetadataExceptions\MalformedInput
+	 * @throws ToolsExceptions\InvalidArgument
 	 */
-	public function consume(Entities\Messages\Entity $entity): bool
+	public function consume(Queue\Messages\Message $message): bool
 	{
-		if (!$entity instanceof Entities\Messages\StoreChannelPropertyState) {
+		if (!$message instanceof Queue\Messages\StoreChannelPropertyState) {
 			return false;
 		}
 
-		$findDeviceQuery = new DevicesQueries\Configuration\FindDevices();
-		$findDeviceQuery->byConnectorId($entity->getConnector());
-		$findDeviceQuery->byId($entity->getDevice());
-		$findDeviceQuery->byType(Entities\VieraDevice::TYPE);
+		$findDeviceQuery = new Queries\Configuration\FindDevices();
+		$findDeviceQuery->byConnectorId($message->getConnector());
+		$findDeviceQuery->byId($message->getDevice());
 
-		$device = $this->devicesConfigurationRepository->findOneBy($findDeviceQuery);
+		$device = $this->devicesConfigurationRepository->findOneBy(
+			$findDeviceQuery,
+			Documents\Devices\Device::class,
+		);
 
 		if ($device === null) {
 			$this->logger->error(
 				'Device could not be loaded',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'store-channel-property-state-message-consumer',
 					'connector' => [
-						'id' => $entity->getConnector()->toString(),
+						'id' => $message->getConnector()->toString(),
 					],
 					'device' => [
-						'id' => $entity->getDevice()->toString(),
+						'id' => $message->getDevice()->toString(),
 					],
 					'channel' => array_merge(
-						is_string($entity->getChannel()) ? ['identifier' => $entity->getChannel()] : [],
-						!is_string($entity->getChannel()) ? ['id' => $entity->getChannel()->toString()] : [],
+						$message->getChannel() instanceof BackedEnum ? ['identifier' => $message->getChannel()->value] : [],
+						!$message->getChannel() instanceof BackedEnum ? ['id' => $message->getChannel()->toString()] : [],
 					),
-					'property' => [
-						'identifier' => $entity->getProperty(),
-					],
-					'data' => $entity->toArray(),
+					'property' => array_merge(
+						$message->getProperty() instanceof BackedEnum ? ['identifier' => $message->getProperty()->value] : [],
+						!$message->getProperty() instanceof BackedEnum ? ['id' => $message->getProperty()->toString()] : [],
+					),
+					'data' => $message->toArray(),
 				],
 			);
 
 			return true;
 		}
 
-		$findChannelQuery = new DevicesQueries\Configuration\FindChannels();
+		$findChannelQuery = new Queries\Configuration\FindChannels();
 		$findChannelQuery->forDevice($device);
-		$findChannelQuery->byType(Entities\VieraChannel::TYPE);
-		if ($entity->getChannel() instanceof Uuid\UuidInterface) {
-			$findChannelQuery->byId($entity->getChannel());
+
+		if ($message->getChannel() instanceof Uuid\UuidInterface) {
+			$findChannelQuery->byId($message->getChannel());
 		} else {
-			$findChannelQuery->byIdentifier($entity->getChannel());
+			$findChannelQuery->byIdentifier($message->getChannel());
 		}
 
-		$channel = $this->channelsConfigurationRepository->findOneBy($findChannelQuery);
+		$channel = $this->channelsConfigurationRepository->findOneBy(
+			$findChannelQuery,
+			Documents\Channels\Channel::class,
+		);
 
 		if ($channel === null) {
 			$this->logger->error(
 				'Channel could not be loaded',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'store-channel-property-state-message-consumer',
 					'connector' => [
-						'id' => $entity->getConnector()->toString(),
+						'id' => $message->getConnector()->toString(),
 					],
 					'device' => [
-						'id' => $entity->getDevice()->toString(),
+						'id' => $device->getId()->toString(),
 					],
 					'channel' => array_merge(
-						is_string($entity->getChannel()) ? ['identifier' => $entity->getChannel()] : [],
-						!is_string($entity->getChannel()) ? ['id' => $entity->getChannel()->toString()] : [],
+						$message->getChannel() instanceof BackedEnum ? ['identifier' => $message->getChannel()->value] : [],
+						!$message->getChannel() instanceof BackedEnum ? ['id' => $message->getChannel()->toString()] : [],
 					),
-					'property' => [
-						'identifier' => $entity->getProperty(),
-					],
-					'data' => $entity->toArray(),
+					'property' => array_merge(
+						$message->getProperty() instanceof BackedEnum ? ['identifier' => $message->getProperty()->value] : [],
+						!$message->getProperty() instanceof BackedEnum ? ['id' => $message->getProperty()->toString()] : [],
+					),
+					'data' => $message->toArray(),
 				],
 			);
 
@@ -141,80 +151,86 @@ final class StoreChannelPropertyState implements Queue\Consumer
 
 		$findChannelPropertyQuery = new DevicesQueries\Configuration\FindChannelDynamicProperties();
 		$findChannelPropertyQuery->forChannel($channel);
-		if ($entity->getProperty() instanceof Uuid\UuidInterface) {
-			$findChannelPropertyQuery->byId($entity->getProperty());
+		if ($message->getProperty() instanceof Uuid\UuidInterface) {
+			$findChannelPropertyQuery->byId($message->getProperty());
 		} else {
-			$findChannelPropertyQuery->byIdentifier($entity->getProperty());
+			$findChannelPropertyQuery->byIdentifier($message->getProperty()->value);
 		}
 
 		$property = $this->channelsPropertiesConfigurationRepository->findOneBy(
 			$findChannelPropertyQuery,
-			MetadataDocuments\DevicesModule\ChannelDynamicProperty::class,
+			DevicesDocuments\Channels\Properties\Dynamic::class,
 		);
 
 		if ($property === null) {
 			$this->logger->error(
 				'Channel property could not be loaded',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'store-channel-property-state-message-consumer',
 					'connector' => [
-						'id' => $entity->getConnector()->toString(),
+						'id' => $message->getConnector()->toString(),
 					],
 					'device' => [
-						'id' => $entity->getDevice()->toString(),
+						'id' => $device->getId()->toString(),
 					],
-					'channel' => array_merge(
-						is_string($entity->getChannel()) ? ['identifier' => $entity->getChannel()] : [],
-						!is_string($entity->getChannel()) ? ['id' => $entity->getChannel()->toString()] : [],
-					),
+					'channel' => [
+						'id' => $channel->getId()->toString(),
+					],
 					'property' => [
-						'identifier' => $entity->getProperty(),
+						'identifier' => $message->getProperty(),
 					],
-					'data' => $entity->toArray(),
+					'data' => $message->toArray(),
 				],
 			);
 
 			return true;
 		}
 
-		if ($property->getDataType()->equalsValue(MetadataTypes\DataType::DATA_TYPE_BUTTON)) {
-			$this->channelPropertiesStatesManager->setValue($property, Utils\ArrayHash::from([
-				DevicesStates\Property::ACTUAL_VALUE_FIELD => null,
-				DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
-				DevicesStates\Property::PENDING_FIELD => false,
-				DevicesStates\Property::VALID_FIELD => true,
-			]));
+		if ($property->getDataType() === MetadataTypes\DataType::BUTTON) {
+			await($this->channelPropertiesStatesManager->set(
+				$property,
+				Utils\ArrayHash::from([
+					DevicesStates\Property::ACTUAL_VALUE_FIELD => null,
+					DevicesStates\Property::VALID_FIELD => true,
+				]),
+				MetadataTypes\Sources\Connector::VIERA,
+			));
+			await($this->channelPropertiesStatesManager->setPendingState(
+				$property,
+				false,
+				MetadataTypes\Sources\Connector::VIERA,
+			));
 		} else {
-			$this->channelPropertiesStatesManager->setValue($property, Utils\ArrayHash::from([
-				DevicesStates\Property::ACTUAL_VALUE_FIELD => MetadataUtilities\ValueHelper::transformValueFromDevice(
-					$property->getDataType(),
-					$property->getFormat(),
-					$entity->getValue(),
-				),
-				DevicesStates\Property::VALID_FIELD => true,
-			]));
+			await($this->channelPropertiesStatesManager->set(
+				$property,
+				Utils\ArrayHash::from([
+					DevicesStates\Property::ACTUAL_VALUE_FIELD => $message->getValue(),
+				]),
+				MetadataTypes\Sources\Connector::VIERA,
+			));
 		}
 
 		$this->logger->debug(
 			'Consumed store device state message',
 			[
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+				'source' => MetadataTypes\Sources\Connector::VIERA->value,
 				'type' => 'store-channel-property-state-message-consumer',
 				'connector' => [
-					'id' => $entity->getConnector()->toString(),
+					'id' => $message->getConnector()->toString(),
 				],
 				'device' => [
-					'id' => $entity->getDevice()->toString(),
+					'id' => $device->getId()->toString(),
 				],
 				'channel' => array_merge(
-					is_string($entity->getChannel()) ? ['identifier' => $entity->getChannel()] : [],
-					!is_string($entity->getChannel()) ? ['id' => $entity->getChannel()->toString()] : [],
+					$message->getChannel() instanceof BackedEnum ? ['identifier' => $message->getChannel()->value] : [],
+					!$message->getChannel() instanceof BackedEnum ? ['id' => $message->getChannel()->toString()] : [],
 				),
-				'property' => [
-					'identifier' => $entity->getProperty(),
-				],
-				'data' => $entity->toArray(),
+				'property' => array_merge(
+					$message->getProperty() instanceof BackedEnum ? ['identifier' => $message->getProperty()->value] : [],
+					!$message->getProperty() instanceof BackedEnum ? ['id' => $message->getProperty()->toString()] : [],
+				),
+				'data' => $message->toArray(),
 			],
 		);
 

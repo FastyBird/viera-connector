@@ -15,9 +15,6 @@
 
 namespace FastyBird\Connector\Viera\Types;
 
-use Consistence;
-use function strval;
-
 /**
  * Device channel type types
  *
@@ -26,19 +23,9 @@ use function strval;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class ChannelType extends Consistence\Enum\Enum
+enum ChannelType: string
 {
 
-	public const TELEVISION = 'television';
-
-	public function getValue(): string
-	{
-		return strval(parent::getValue());
-	}
-
-	public function __toString(): string
-	{
-		return self::getValue();
-	}
+	case TELEVISION = 'television';
 
 }

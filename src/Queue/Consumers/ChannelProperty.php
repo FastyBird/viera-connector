@@ -17,12 +17,14 @@ namespace FastyBird\Connector\Viera\Queue\Consumers;
 
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
+use FastyBird\Connector\Viera\Exceptions;
+use FastyBird\Connector\Viera\Queries;
+use FastyBird\Connector\Viera\Types;
+use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
+use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
-use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
-use FastyBird\Module\Devices\Queries as DevicesQueries;
-use FastyBird\Module\Devices\Utilities as DevicesUtilities;
 use Nette\Utils;
 use Ramsey\Uuid;
 use function array_merge;
@@ -38,7 +40,7 @@ use function array_merge;
  * @property-read DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository
  * @property-read DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository
  * @property-read DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager
- * @property-read DevicesUtilities\Database $databaseHelper
+ * @property-read ApplicationHelpers\Database $databaseHelper
  * @property-read Viera\Logger $logger
  */
 trait ChannelProperty
@@ -48,23 +50,24 @@ trait ChannelProperty
 	 * @param class-string<DevicesEntities\Channels\Properties\Variable|DevicesEntities\Channels\Properties\Dynamic> $type
 	 * @param string|array<int, string>|array<int, string|int|float|array<int, string|int|float>|Utils\ArrayHash|null>|array<int, array<int, string|array<int, string|int|float|bool>|Utils\ArrayHash|null>>|null $format
 	 *
+	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
-	 * @throws DevicesExceptions\InvalidState
-	 * @throws DevicesExceptions\Runtime
+	 * @throws Exceptions\InvalidArgument
 	 */
 	private function setChannelProperty(
 		string $type,
 		Uuid\UuidInterface $channelId,
 		string|bool|int|null $value,
 		MetadataTypes\DataType $dataType,
-		string $identifier,
+		Types\ChannelPropertyIdentifier $identifier,
 		string|null $name = null,
 		array|string|null $format = null,
 		bool $settable = false,
 		bool $queryable = false,
 	): void
 	{
-		$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelProperties();
+		$findChannelPropertyQuery = new Queries\Entities\FindChannelProperties();
 		$findChannelPropertyQuery->byChannelId($channelId);
 		$findChannelPropertyQuery->byIdentifier($identifier);
 
@@ -92,14 +95,14 @@ trait ChannelProperty
 			$this->logger->warning(
 				'Stored channel property was not of valid type',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'message-consumer',
 					'channel' => [
 						'id' => $channelId->toString(),
 					],
 					'property' => [
 						'id' => $property->getId()->toString(),
-						'identifier' => $identifier,
+						'identifier' => $identifier->value,
 					],
 				],
 			);
@@ -108,19 +111,19 @@ trait ChannelProperty
 		}
 
 		if ($property === null) {
-			$channel = $this->channelsRepository->find($channelId, Viera\Entities\VieraChannel::class);
+			$channel = $this->channelsRepository->find($channelId, Viera\Entities\Channels\Channel::class);
 
 			if ($channel === null) {
 				$this->logger->error(
 					'Channel was not found, property could not be configured',
 					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'source' => MetadataTypes\Sources\Connector::VIERA->value,
 						'type' => 'message-consumer',
 						'channel' => [
 							'id' => $channelId->toString(),
 						],
 						'property' => [
-							'identifier' => $identifier,
+							'identifier' => $identifier->value,
 						],
 					],
 				);
@@ -134,7 +137,7 @@ trait ChannelProperty
 						[
 							'entity' => $type,
 							'channel' => $channel,
-							'identifier' => $identifier,
+							'identifier' => $identifier->value,
 							'name' => $name,
 							'dataType' => $dataType,
 							'format' => $format,
@@ -154,14 +157,14 @@ trait ChannelProperty
 			$this->logger->debug(
 				'Channel property was created',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'message-consumer',
 					'channel' => [
 						'id' => $channelId->toString(),
 					],
 					'property' => [
 						'id' => $property->getId()->toString(),
-						'identifier' => $identifier,
+						'identifier' => $identifier->value,
 					],
 				],
 			);
@@ -190,14 +193,14 @@ trait ChannelProperty
 			$this->logger->debug(
 				'Channel property was updated',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'message-consumer',
 					'channel' => [
 						'id' => $channelId->toString(),
 					],
 					'property' => [
 						'id' => $property->getId()->toString(),
-						'identifier' => $identifier,
+						'identifier' => $identifier->value,
 					],
 				],
 			);

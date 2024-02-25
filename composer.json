@@ -32,7 +32,7 @@
     "source": "https://github.com/FastyBird/viera-connector"
   },
   "require": {
-    "php": ">=8.1.0",
+    "php": ">=8.2.0",
     "ext-iconv": "*",
     "ext-openssl": "*",
     "ext-simplexml": "*",
@@ -43,17 +43,16 @@
     "contributte/translation": "^2.0",
     "cweagans/composer-patches": "^1.7",
     "doctrine/orm": "2.15.*",
-    "evenement/evenement": "^3.0",
-    "fastybird/bootstrap-library": "dev-main",
+    "fastybird/application-library": "dev-main",
     "fastybird/datetime-factory": "^0.6",
     "fastybird/devices-module": "dev-main",
     "fastybird/metadata-library": "dev-main",
     "fig/http-message-util": "^1.1",
     "guzzlehttp/guzzle": "^7.5",
-    "ipub/doctrine-crud": "^3.0",
+    "ipub/doctrine-crud": "^4.0",
     "nette/di": "^3.0",
+    "orisai/nette-object-mapper": "^0.1",
     "psr/log": "^3.0",
-    "orisai/object-mapper": "^0.1",
     "ramsey/uuid": "^4.5",
     "react/async": "^4.0",
     "react/datagram": "^1.8",
@@ -119,12 +118,6 @@
       }
     }
   },
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/mathsolver/mathsolver.git"
-    }
-  ],
   "minimum-stability": "dev",
   "prefer-stable": true
 }

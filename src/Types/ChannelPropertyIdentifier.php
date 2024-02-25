@@ -15,9 +15,6 @@
 
 namespace FastyBird\Connector\Viera\Types;
 
-use Consistence;
-use function strval;
-
 /**
  * Device property identifier types
  *
@@ -26,81 +23,71 @@ use function strval;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-class ChannelPropertyIdentifier extends Consistence\Enum\Enum
+enum ChannelPropertyIdentifier: string
 {
 
-	public const STATE = 'state';
+	case STATE = 'state';
 
-	public const VOLUME = 'volume';
+	case VOLUME = 'volume';
 
-	public const MUTE = 'mute';
+	case MUTE = 'mute';
 
-	public const INPUT_SOURCE = 'input_source';
+	case INPUT_SOURCE = 'input_source';
 
-	public const APPLICATION = 'application';
+	case APPLICATION = 'application';
 
-	public const HDMI = 'hdmi';
+	case HDMI = 'hdmi';
 
-	public const KEY_TV = 'key_tv';
+	case KEY_TV = 'key_tv';
 
-	public const KEY_HOME = 'key_home';
+	case KEY_HOME = 'key_home';
 
-	public const KEY_CHANNEL_UP = 'key_channel_up';
+	case KEY_CHANNEL_UP = 'key_channel_up';
 
-	public const KEY_CHANNEL_DOWN = 'key_channel_down';
+	case KEY_CHANNEL_DOWN = 'key_channel_down';
 
-	public const KEY_VOLUME_UP = 'key_volume_up';
+	case KEY_VOLUME_UP = 'key_volume_up';
 
-	public const KEY_VOLUME_DOWN = 'key_volume_down';
+	case KEY_VOLUME_DOWN = 'key_volume_down';
 
-	public const KEY_ARROW_UP = 'key_arrow_up';
+	case KEY_ARROW_UP = 'key_arrow_up';
 
-	public const KEY_ARROW_DOWN = 'key_arrow_down';
+	case KEY_ARROW_DOWN = 'key_arrow_down';
 
-	public const KEY_ARROW_LEFT = 'key_arrow_left';
+	case KEY_ARROW_LEFT = 'key_arrow_left';
 
-	public const KEY_ARROW_RIGHT = 'key_arrow_right';
+	case KEY_ARROW_RIGHT = 'key_arrow_right';
 
-	public const KEY_0 = 'key_0';
+	case KEY_0 = 'key_0';
 
-	public const KEY_1 = 'key_1';
+	case KEY_1 = 'key_1';
 
-	public const KEY_2 = 'key_2';
+	case KEY_2 = 'key_2';
 
-	public const KEY_3 = 'key_3';
+	case KEY_3 = 'key_3';
 
-	public const KEY_4 = 'key_4';
+	case KEY_4 = 'key_4';
 
-	public const KEY_5 = 'key_5';
+	case KEY_5 = 'key_5';
 
-	public const KEY_6 = 'key_6';
+	case KEY_6 = 'key_6';
 
-	public const KEY_7 = 'key_7';
+	case KEY_7 = 'key_7';
 
-	public const KEY_8 = 'key_8';
+	case KEY_8 = 'key_8';
 
-	public const KEY_9 = 'key_9';
+	case KEY_9 = 'key_9';
 
-	public const KEY_RED = 'key_red';
+	case KEY_RED = 'key_red';
 
-	public const KEY_GREEN = 'key_green';
+	case KEY_GREEN = 'key_green';
 
-	public const KEY_YELLOW = 'key_yellow';
+	case KEY_YELLOW = 'key_yellow';
 
-	public const KEY_BLUE = 'key_blue';
+	case KEY_BLUE = 'key_blue';
 
-	public const KEY_OK = 'key_ok';
+	case KEY_OK = 'key_ok';
 
-	public const KEY_BACK = 'key_back';
-
-	public function getValue(): string
-	{
-		return strval(parent::getValue());
-	}
-
-	public function __toString(): string
-	{
-		return self::getValue();
-	}
+	case KEY_BACK = 'key_back';
 
 }

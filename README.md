@@ -36,7 +36,7 @@ and is licensed under [Apache2](http://www.apache.org/licenses/LICENSE-2.0).
 
 ## Requirements
 
-Panasonic Viera connector is tested against PHP 8.1 and require installed [Process Control](https://www.php.net/manual/en/book.pcntl.php),
+Panasonic Viera connector is tested against PHP 8.2 and require installed [Process Control](https://www.php.net/manual/en/book.pcntl.php),
 [OpenSSL](https://www.php.net/manual/en/book.openssl.php), [SimpleXML](https://www.php.net/manual/en/book.simplexml.php) and [Iconv](https://www.php.net/manual/en/book.iconv.php)
 PHP extensions.
 

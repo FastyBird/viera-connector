@@ -13,6 +13,12 @@
 # @date           11.08.23
 #
 
+base:
+    messages:
+        invalidRelation:
+            heading: "Invalid relation"
+            message: "Provided relation is not valid"
+
 cmd:
     base:
         questions:
@@ -183,6 +189,7 @@ cmd:
                 offline: "It looks like your television is not turned on. It is possible that the pairing could not be finished."
                 needPairing: "It looks like your TV require application pairing."
                 checkStatusFailed: "Reading television status failed. Television could not be created. An error was logged."
+                pairingFailed: "Something went wrong, television: \"%device%\" could not be paired. An error was logged."
             info:
                 hdmi: "Now you have to provide name for configured HDMI input and its number. HDMI number is related to you television."
                 macAddress: "MAC address will be used to turn on you television on."
@@ -194,3 +201,8 @@ cmd:
             noDevices: "No televisions registered in selected connector."
             foundDevices: "Found %d new televisions"
             noDevicesFound: "No televisions were found"
+            missingIpAddress: "Something went wrong television: \"%device%\" has not defined its ip address."
+            pairing:
+                started: "Pairing television: \"%device%\"."
+                finished: "Television: \"%device%\" was successfully paired."
+                failed: "Communication with your: \"%device%\" failed. Pairing could not be finished. An error was logged."

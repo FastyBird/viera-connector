@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Clients;
 
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Connector\Viera\Documents;
 
 /**
  * Lan devices client factory
@@ -28,6 +28,6 @@ use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 interface TelevisionFactory extends ClientFactory
 {
 
-	public function create(MetadataDocuments\DevicesModule\Connector $connector): Television;
+	public function create(Documents\Connectors\Connector $connector): Television;
 
 }

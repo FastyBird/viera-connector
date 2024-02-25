@@ -17,7 +17,6 @@ namespace FastyBird\Connector\Viera\Commands;
 
 use DateTimeInterface;
 use Doctrine\DBAL;
-use Doctrine\Persistence;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Entities;
@@ -26,16 +25,17 @@ use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
-use FastyBird\Library\Bootstrap\Exceptions as BootstrapExceptions;
-use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
+use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Commands as DevicesCommands;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
-use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\Types as DevicesTypes;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
+use IPub\DoctrineCrud\Exceptions as DoctrineCrudExceptions;
 use Nette\Localization;
 use Nette\Utils;
 use RuntimeException;
@@ -44,6 +44,8 @@ use Symfony\Component\Console\Input;
 use Symfony\Component\Console\Output;
 use Symfony\Component\Console\Style;
 use Throwable;
+use TypeError;
+use ValueError;
 use function array_key_exists;
 use function array_keys;
 use function array_map;
@@ -95,9 +97,8 @@ class Install extends Console\Command\Command
 		private readonly DevicesModels\Entities\Channels\ChannelsManager $channelsManager,
 		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private readonly DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
-		private readonly BootstrapHelpers\Database $databaseHelper,
+		private readonly ApplicationHelpers\Database $databaseHelper,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
-		private readonly Persistence\ManagerRegistry $managerRegistry,
 		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)
@@ -116,15 +117,18 @@ class Install extends Console\Command\Command
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	protected function execute(Input\InputInterface $input, Output\OutputInterface $output): int
 	{
@@ -143,11 +147,11 @@ class Install extends Console\Command\Command
 	}
 
 	/**
-	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function createConnector(Style\SymfonyStyle $io): void
 	{
@@ -162,7 +166,7 @@ class Install extends Console\Command\Command
 
 				if ($this->connectorsRepository->findOneBy(
 					$findConnectorQuery,
-					Entities\VieraConnector::class,
+					Entities\Connectors\Connector::class,
 				) !== null) {
 					throw new Exceptions\Runtime(
 						$this->translator->translate(
@@ -188,7 +192,7 @@ class Install extends Console\Command\Command
 
 				if ($this->connectorsRepository->findOneBy(
 					$findConnectorQuery,
-					Entities\VieraConnector::class,
+					Entities\Connectors\Connector::class,
 				) === null) {
 					break;
 				}
@@ -207,17 +211,17 @@ class Install extends Console\Command\Command
 
 		try {
 			// Start transaction connection to the database
-			$this->getOrmConnection()->beginTransaction();
+			$this->databaseHelper->beginTransaction();
 
 			$connector = $this->connectorsManager->create(Utils\ArrayHash::from([
-				'entity' => Entities\VieraConnector::class,
+				'entity' => Entities\Connectors\Connector::class,
 				'identifier' => $identifier,
 				'name' => $name === '' ? null : $name,
 			]));
-			assert($connector instanceof Entities\VieraConnector);
+			assert($connector instanceof Entities\Connectors\Connector);
 
 			// Commit all changes into database
-			$this->getOrmConnection()->commit();
+			$this->databaseHelper->commitTransaction();
 
 			$io->success(
 				$this->translator->translate(
@@ -230,9 +234,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'An unhandled error occurred',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -240,11 +244,6 @@ class Install extends Console\Command\Command
 
 			return;
 		} finally {
-			// Revert all changes when error occur
-			if ($this->getOrmConnection()->isTransactionActive()) {
-				$this->getOrmConnection()->rollBack();
-			}
-
 			$this->databaseHelper->clear();
 		}
 
@@ -258,9 +257,9 @@ class Install extends Console\Command\Command
 		if ($createDevices) {
 			$connector = $this->connectorsRepository->find(
 				$connector->getId(),
-				Entities\VieraConnector::class,
+				Entities\Connectors\Connector::class,
 			);
-			assert($connector instanceof Entities\VieraConnector);
+			assert($connector instanceof Entities\Connectors\Connector);
 
 			$this->createDevice($io, $connector);
 		}
@@ -270,10 +269,13 @@ class Install extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function editConnector(Style\SymfonyStyle $io): void
 	{
@@ -322,16 +324,16 @@ class Install extends Console\Command\Command
 
 		try {
 			// Start transaction connection to the database
-			$this->getOrmConnection()->beginTransaction();
+			$this->databaseHelper->beginTransaction();
 
 			$connector = $this->connectorsManager->update($connector, Utils\ArrayHash::from([
 				'name' => $name === '' ? null : $name,
 				'enabled' => $enabled,
 			]));
-			assert($connector instanceof Entities\VieraConnector);
+			assert($connector instanceof Entities\Connectors\Connector);
 
 			// Commit all changes into database
-			$this->getOrmConnection()->commit();
+			$this->databaseHelper->commitTransaction();
 
 			$io->success(
 				$this->translator->translate(
@@ -344,9 +346,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'An unhandled error occurred',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -354,11 +356,6 @@ class Install extends Console\Command\Command
 
 			return;
 		} finally {
-			// Revert all changes when error occur
-			if ($this->getOrmConnection()->isTransactionActive()) {
-				$this->getOrmConnection()->rollBack();
-			}
-
 			$this->databaseHelper->clear();
 		}
 
@@ -375,18 +372,16 @@ class Install extends Console\Command\Command
 
 		$connector = $this->connectorsRepository->find(
 			$connector->getId(),
-			Entities\VieraConnector::class,
+			Entities\Connectors\Connector::class,
 		);
-		assert($connector instanceof Entities\VieraConnector);
+		assert($connector instanceof Entities\Connectors\Connector);
 
 		$this->askManageConnectorAction($io, $connector);
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
-	 * @throws DBAL\Exception
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws Exceptions\Runtime
 	 */
 	private function deleteConnector(Style\SymfonyStyle $io): void
 	{
@@ -418,12 +413,12 @@ class Install extends Console\Command\Command
 
 		try {
 			// Start transaction connection to the database
-			$this->getOrmConnection()->beginTransaction();
+			$this->databaseHelper->beginTransaction();
 
 			$this->connectorsManager->delete($connector);
 
 			// Commit all changes into database
-			$this->getOrmConnection()->commit();
+			$this->databaseHelper->commitTransaction();
 
 			$io->success(
 				$this->translator->translate(
@@ -436,33 +431,31 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'An unhandled error occurred',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
 			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.remove.connector.error'));
 		} finally {
-			// Revert all changes when error occur
-			if ($this->getOrmConnection()->isTransactionActive()) {
-				$this->getOrmConnection()->rollBack();
-			}
-
 			$this->databaseHelper->clear();
 		}
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function manageConnector(Style\SymfonyStyle $io): void
 	{
@@ -484,10 +477,13 @@ class Install extends Console\Command\Command
 	{
 		$findConnectorsQuery = new Queries\Entities\FindConnectors();
 
-		$connectors = $this->connectorsRepository->findAllBy($findConnectorsQuery, Entities\VieraConnector::class);
+		$connectors = $this->connectorsRepository->findAllBy(
+			$findConnectorsQuery,
+			Entities\Connectors\Connector::class,
+		);
 		usort(
 			$connectors,
-			static fn (Entities\VieraConnector $a, Entities\VieraConnector $b): int => (
+			static fn (Entities\Connectors\Connector $a, Entities\Connectors\Connector $b): int => (
 				($a->getName() ?? $a->getIdentifier()) <=> ($b->getName() ?? $b->getIdentifier())
 			),
 		);
@@ -503,7 +499,7 @@ class Install extends Console\Command\Command
 			$findDevicesQuery = new Queries\Entities\FindDevices();
 			$findDevicesQuery->forConnector($connector);
 
-			$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+			$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\Devices\Device::class);
 
 			$table->addRow([
 				$index + 1,
@@ -518,13 +514,14 @@ class Install extends Console\Command\Command
 	}
 
 	/**
-	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function createDevice(Style\SymfonyStyle $io, Entities\VieraConnector $connector): void
+	private function createDevice(Style\SymfonyStyle $io, Entities\Connectors\Connector $connector): void
 	{
 		$tempIdentifier = 'new-device-' . $this->dateTimeFactory->getNow()->format(DateTimeInterface::ATOM);
 
@@ -534,7 +531,7 @@ class Install extends Console\Command\Command
 			$televisionApi = $this->televisionApiFactory->create(
 				$tempIdentifier,
 				$ipAddress,
-				Entities\VieraDevice::DEFAULT_PORT,
+				Entities\Devices\Device::DEFAULT_PORT,
 			);
 			$televisionApi->connect();
 		} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
@@ -545,9 +542,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Creating api client failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -564,9 +561,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Checking TV status failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -594,9 +591,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -609,9 +606,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 					'request' => [
 						'method' => $ex->getRequest()?->getMethod(),
 						'url' => $ex->getRequest() !== null ? strval($ex->getRequest()->getUri()) : null,
@@ -638,9 +635,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Checking screen status failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -679,7 +676,7 @@ class Install extends Console\Command\Command
 				$televisionApi = $this->televisionApiFactory->create(
 					$tempIdentifier,
 					$ipAddress,
-					Entities\VieraDevice::DEFAULT_PORT,
+					Entities\Devices\Device::DEFAULT_PORT,
 					$authorization->getAppId(),
 					$authorization->getEncryptionKey(),
 				);
@@ -692,9 +689,9 @@ class Install extends Console\Command\Command
 				$this->logger->error(
 					'Pin code pairing failed',
 					[
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+						'source' => MetadataTypes\Sources\Connector::VIERA->value,
 						'type' => 'install-cmd',
-						'exception' => BootstrapHelpers\Logger::buildException($ex),
+						'exception' => ApplicationHelpers\Logger::buildException($ex),
 					],
 				);
 
@@ -712,9 +709,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Loading apps failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -778,57 +775,57 @@ class Install extends Console\Command\Command
 
 		try {
 			// Start transaction connection to the database
-			$this->getOrmConnection()->beginTransaction();
+			$this->databaseHelper->beginTransaction();
 
 			$device = $this->devicesManager->create(Utils\ArrayHash::from([
-				'entity' => Entities\VieraDevice::class,
+				'entity' => Entities\Devices\Device::class,
 				'connector' => $connector,
 				'identifier' => $specs->getSerialNumber(),
 				'name' => $specs->getFriendlyName() ?? $specs->getModelName(),
 			]));
-			assert($device instanceof Entities\VieraDevice);
+			assert($device instanceof Entities\Devices\Device);
 
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
-				'identifier' => Types\DevicePropertyIdentifier::IP_ADDRESS,
-				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+				'identifier' => Types\DevicePropertyIdentifier::IP_ADDRESS->value,
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS->value),
+				'dataType' => MetadataTypes\DataType::STRING,
 				'value' => $ipAddress,
 				'device' => $device,
 			]));
 
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
-				'identifier' => Types\DevicePropertyIdentifier::PORT,
-				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UINT),
-				'value' => Entities\VieraDevice::DEFAULT_PORT,
+				'identifier' => Types\DevicePropertyIdentifier::PORT->value,
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT->value),
+				'dataType' => MetadataTypes\DataType::UINT,
+				'value' => Entities\Devices\Device::DEFAULT_PORT,
 				'device' => $device,
 			]));
 
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
-				'identifier' => Types\DevicePropertyIdentifier::MODEL,
-				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+				'identifier' => Types\DevicePropertyIdentifier::MODEL->value,
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL->value),
+				'dataType' => MetadataTypes\DataType::STRING,
 				'value' => trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
 				'device' => $device,
 			]));
 
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
-				'identifier' => Types\DevicePropertyIdentifier::MANUFACTURER,
-				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MANUFACTURER),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+				'identifier' => Types\DevicePropertyIdentifier::MANUFACTURER->value,
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MANUFACTURER->value),
+				'dataType' => MetadataTypes\DataType::STRING,
 				'value' => $specs->getManufacturer(),
 				'device' => $device,
 			]));
 
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
-				'identifier' => Types\DevicePropertyIdentifier::SERIAL_NUMBER,
-				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::SERIAL_NUMBER),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+				'identifier' => Types\DevicePropertyIdentifier::SERIAL_NUMBER->value,
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::SERIAL_NUMBER->value),
+				'dataType' => MetadataTypes\DataType::STRING,
 				'value' => $specs->getSerialNumber(),
 				'device' => $device,
 			]));
@@ -836,9 +833,9 @@ class Install extends Console\Command\Command
 			if ($macAddress !== null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::MAC_ADDRESS,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::MAC_ADDRESS->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $macAddress,
 					'device' => $device,
 				]));
@@ -846,9 +843,9 @@ class Install extends Console\Command\Command
 
 			$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Devices\Properties\Variable::class,
-				'identifier' => Types\DevicePropertyIdentifier::ENCRYPTED,
-				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTED),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
+				'identifier' => Types\DevicePropertyIdentifier::ENCRYPTED->value,
+				'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTED->value),
+				'dataType' => MetadataTypes\DataType::BOOLEAN,
 				'value' => $specs->isRequiresEncryption(),
 				'device' => $device,
 			]));
@@ -856,34 +853,34 @@ class Install extends Console\Command\Command
 			if ($authorization !== null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::APP_ID,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::APP_ID->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $authorization->getAppId(),
 					'device' => $device,
 				]));
 
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $authorization->getEncryptionKey(),
 					'device' => $device,
 				]));
 			}
 
 			$channel = $this->channelsManager->create(Utils\ArrayHash::from([
-				'entity' => Entities\VieraChannel::class,
+				'entity' => Entities\Channels\Channel::class,
 				'device' => $device,
-				'identifier' => Types\ChannelType::TELEVISION,
+				'identifier' => Types\ChannelType::TELEVISION->value,
 			]));
 
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => Types\ChannelPropertyIdentifier::STATE,
-				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::STATE),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
+				'identifier' => Types\ChannelPropertyIdentifier::STATE->value,
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::STATE->value),
+				'dataType' => MetadataTypes\DataType::BOOLEAN,
 				'settable' => true,
 				'queryable' => true,
 				'format' => null,
@@ -892,9 +889,9 @@ class Install extends Console\Command\Command
 
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => Types\ChannelPropertyIdentifier::VOLUME,
-				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::VOLUME),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UCHAR),
+				'identifier' => Types\ChannelPropertyIdentifier::VOLUME->value,
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::VOLUME->value),
+				'dataType' => MetadataTypes\DataType::UCHAR,
 				'settable' => true,
 				'queryable' => true,
 				'format' => [
@@ -906,9 +903,9 @@ class Install extends Console\Command\Command
 
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => Types\ChannelPropertyIdentifier::MUTE,
-				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::MUTE),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_BOOLEAN),
+				'identifier' => Types\ChannelPropertyIdentifier::MUTE->value,
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::MUTE->value),
+				'dataType' => MetadataTypes\DataType::BOOLEAN,
 				'settable' => true,
 				'queryable' => true,
 				'format' => null,
@@ -917,9 +914,9 @@ class Install extends Console\Command\Command
 
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => Types\ChannelPropertyIdentifier::HDMI,
-				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
+				'identifier' => Types\ChannelPropertyIdentifier::HDMI->value,
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::HDMI->value),
+				'dataType' => MetadataTypes\DataType::ENUM,
 				'settable' => true,
 				'queryable' => false,
 				'format' => $hdmi !== [] ? $hdmi : null,
@@ -928,13 +925,13 @@ class Install extends Console\Command\Command
 
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => Types\ChannelPropertyIdentifier::APPLICATION,
-				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
+				'identifier' => Types\ChannelPropertyIdentifier::APPLICATION->value,
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION->value),
+				'dataType' => MetadataTypes\DataType::ENUM,
 				'settable' => true,
 				'queryable' => false,
 				'format' => $apps !== null ? array_map(
-					static fn (Entities\API\Application $item): array => [
+					static fn (API\Messages\Response\Application $item): array => [
 						Helpers\Name::sanitizeEnumName($item->getName()),
 						$item->getId(),
 						$item->getId(),
@@ -946,9 +943,9 @@ class Install extends Console\Command\Command
 
 			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => Types\ChannelPropertyIdentifier::INPUT_SOURCE,
-				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE),
-				'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
+				'identifier' => Types\ChannelPropertyIdentifier::INPUT_SOURCE->value,
+				'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE->value),
+				'dataType' => MetadataTypes\DataType::ENUM,
 				'settable' => true,
 				'queryable' => false,
 				'format' => array_merge(
@@ -961,7 +958,7 @@ class Install extends Console\Command\Command
 					],
 					$hdmi !== [] ? $hdmi : [],
 					$apps !== null ? array_map(
-						static fn (Entities\API\Application $item): array => [
+						static fn (API\Messages\Response\Application $item): array => [
 							Helpers\Name::sanitizeEnumName($item->getName()),
 							$item->getId(),
 							$item->getId(),
@@ -973,7 +970,7 @@ class Install extends Console\Command\Command
 			]));
 
 			// Commit all changes into database
-			$this->getOrmConnection()->commit();
+			$this->databaseHelper->commitTransaction();
 
 			$io->success(
 				$this->translator->translate(
@@ -986,9 +983,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'An unhandled error occurred',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -996,23 +993,20 @@ class Install extends Console\Command\Command
 
 			return;
 		} finally {
-			// Revert all changes when error occur
-			if ($this->getOrmConnection()->isTransactionActive()) {
-				$this->getOrmConnection()->rollBack();
-			}
-
 			$this->databaseHelper->clear();
 		}
 	}
 
 	/**
-	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function editDevice(Style\SymfonyStyle $io, Entities\VieraConnector $connector): void
+	private function editDevice(Style\SymfonyStyle $io, Entities\Connectors\Connector $connector): void
 	{
 		$device = $this->askWhichDevice($io, $connector);
 
@@ -1037,13 +1031,13 @@ class Install extends Console\Command\Command
 		$findChannel->forDevice($device);
 		$findChannel->byIdentifier(Types\ChannelType::TELEVISION);
 
-		$channel = $this->channelsRepository->findOneBy($findChannel, Entities\VieraChannel::class);
+		$channel = $this->channelsRepository->findOneBy($findChannel, Entities\Channels\Channel::class);
 
 		$authorization = null;
 
 		$name = $this->askDeviceName($io, $device);
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::IP_ADDRESS);
 
@@ -1067,7 +1061,7 @@ class Install extends Console\Command\Command
 			$ipAddress = $this->askDeviceIpAddress($io, $device);
 		}
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::PORT);
 
@@ -1094,7 +1088,7 @@ class Install extends Console\Command\Command
 		$hdmiProperty = null;
 
 		if ($channel !== null) {
-			$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelProperties();
+			$findChannelPropertyQuery = new Queries\Entities\FindChannelProperties();
 			$findChannelPropertyQuery->forChannel($channel);
 			$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
 
@@ -1143,38 +1137,38 @@ class Install extends Console\Command\Command
 		$appsProperty = null;
 
 		if ($channel !== null) {
-			$findChannelPropertyQuery = new DevicesQueries\Entities\FindChannelProperties();
+			$findChannelPropertyQuery = new Queries\Entities\FindChannelProperties();
 			$findChannelPropertyQuery->forChannel($channel);
 			$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
 
 			$appsProperty = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
 		}
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
 
 		$appIdProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTION_KEY);
 
 		$encryptionKeyProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::MODEL);
 
 		$hardwareModelProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::MANUFACTURER);
 
 		$hardwareManufacturerProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
 
-		$findDevicePropertyQuery = new DevicesQueries\Entities\FindDeviceProperties();
+		$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
 		$findDevicePropertyQuery->forDevice($device);
 		$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::MAC_ADDRESS);
 
@@ -1220,9 +1214,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Creating api client failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -1239,9 +1233,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Checking TV status failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -1269,9 +1263,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -1284,9 +1278,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Loading TV specification failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 					'request' => [
 						'method' => $ex->getRequest()?->getMethod(),
 						'url' => $ex->getRequest() !== null ? strval($ex->getRequest()->getUri()) : null,
@@ -1311,9 +1305,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Checking screen status failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -1372,9 +1366,9 @@ class Install extends Console\Command\Command
 					$this->logger->error(
 						'Pin code pairing failed',
 						[
-							'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
 							'type' => 'install-cmd',
-							'exception' => BootstrapHelpers\Logger::buildException($ex),
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
 						],
 					);
 
@@ -1393,9 +1387,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'Loading apps failed',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -1404,19 +1398,19 @@ class Install extends Console\Command\Command
 
 		try {
 			// Start transaction connection to the database
-			$this->getOrmConnection()->beginTransaction();
+			$this->databaseHelper->beginTransaction();
 
 			$device = $this->devicesManager->update($device, Utils\ArrayHash::from([
 				'name' => $name,
 			]));
-			assert($device instanceof Entities\VieraDevice);
+			assert($device instanceof Entities\Devices\Device);
 
 			if ($ipAddressProperty === null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::IP_ADDRESS,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::IP_ADDRESS->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $ipAddress,
 					'device' => $device,
 				]));
@@ -1429,9 +1423,9 @@ class Install extends Console\Command\Command
 			if ($portProperty === null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::PORT,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_UINT),
+					'identifier' => Types\DevicePropertyIdentifier::PORT->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT->value),
+					'dataType' => MetadataTypes\DataType::UINT,
 					'value' => $port,
 					'device' => $device,
 				]));
@@ -1444,9 +1438,9 @@ class Install extends Console\Command\Command
 			if ($appIdProperty === null && $authorization !== null && $authorization !== false) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::APP_ID,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::APP_ID->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $authorization->getAppId(),
 					'device' => $device,
 				]));
@@ -1461,9 +1455,9 @@ class Install extends Console\Command\Command
 			if ($encryptionKeyProperty === null && $authorization !== null && $authorization !== false) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $authorization->getEncryptionKey(),
 					'device' => $device,
 				]));
@@ -1478,9 +1472,9 @@ class Install extends Console\Command\Command
 			if ($hardwareModelProperty === null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::MODEL,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::MODEL->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => trim(sprintf('%s %s', $specs->getModelName(), $specs->getModelNumber())),
 					'device' => $device,
 				]));
@@ -1493,11 +1487,11 @@ class Install extends Console\Command\Command
 			if ($hardwareManufacturerProperty === null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::MODEL,
+					'identifier' => Types\DevicePropertyIdentifier::MODEL->value,
 					'name' => DevicesUtilities\Name::createName(
-						Types\DevicePropertyIdentifier::MANUFACTURER,
+						Types\DevicePropertyIdentifier::MANUFACTURER->value,
 					),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $specs->getManufacturer(),
 					'device' => $device,
 				]));
@@ -1510,9 +1504,9 @@ class Install extends Console\Command\Command
 			if ($macAddressProperty === null) {
 				$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
 					'entity' => DevicesEntities\Devices\Properties\Variable::class,
-					'identifier' => Types\DevicePropertyIdentifier::MAC_ADDRESS,
-					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS),
-					'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_STRING),
+					'identifier' => Types\DevicePropertyIdentifier::MAC_ADDRESS->value,
+					'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS->value),
+					'dataType' => MetadataTypes\DataType::STRING,
 					'value' => $macAddress,
 					'device' => $device,
 				]));
@@ -1524,7 +1518,7 @@ class Install extends Console\Command\Command
 
 			if ($channel === null) {
 				$channel = $this->channelsManager->create(Utils\ArrayHash::from([
-					'entity' => Entities\VieraChannel::class,
+					'entity' => Entities\Channels\Channel::class,
 					'device' => $device,
 					'identifier' => Types\ChannelType::TELEVISION,
 				]));
@@ -1534,9 +1528,9 @@ class Install extends Console\Command\Command
 				if ($hdmiProperty === null) {
 					$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-						'identifier' => Types\ChannelPropertyIdentifier::HDMI,
-						'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::HDMI),
-						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
+						'identifier' => Types\ChannelPropertyIdentifier::HDMI->value,
+						'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::HDMI->value),
+						'dataType' => MetadataTypes\DataType::ENUM,
 						'settable' => true,
 						'queryable' => false,
 						'format' => array_map(static fn (string $name, int $index): array => [
@@ -1561,13 +1555,15 @@ class Install extends Console\Command\Command
 				if ($appsProperty === null) {
 					$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
 						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-						'identifier' => Types\ChannelPropertyIdentifier::APPLICATION,
-						'name' => DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::APPLICATION),
-						'dataType' => MetadataTypes\DataType::get(MetadataTypes\DataType::DATA_TYPE_ENUM),
+						'identifier' => Types\ChannelPropertyIdentifier::APPLICATION->value,
+						'name' => DevicesUtilities\Name::createName(
+							Types\ChannelPropertyIdentifier::APPLICATION->value,
+						),
+						'dataType' => MetadataTypes\DataType::ENUM,
 						'settable' => true,
 						'queryable' => false,
 						'format' => $apps->getApps() !== [] ? array_map(
-							static fn (Entities\API\Application $application): array => [
+							static fn (API\Messages\Response\Application $application): array => [
 								Helpers\Name::sanitizeEnumName($application->getName()),
 								$application->getId(),
 								$application->getId(),
@@ -1579,7 +1575,7 @@ class Install extends Console\Command\Command
 				} elseif ($macAddress !== null) {
 					$this->channelsPropertiesManager->update($appsProperty, Utils\ArrayHash::from([
 						'format' => $apps->getApps() !== [] ? array_map(
-							static fn (Entities\API\Application $application): array => [
+							static fn (API\Messages\Response\Application $application): array => [
 								Helpers\Name::sanitizeEnumName($application->getName()),
 								$application->getId(),
 								$application->getId(),
@@ -1591,7 +1587,7 @@ class Install extends Console\Command\Command
 			}
 
 			// Commit all changes into database
-			$this->getOrmConnection()->commit();
+			$this->databaseHelper->commitTransaction();
 
 			$io->success(
 				$this->translator->translate(
@@ -1604,9 +1600,9 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'An unhandled error occurred',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
@@ -1614,22 +1610,15 @@ class Install extends Console\Command\Command
 
 			return;
 		} finally {
-			// Revert all changes when error occur
-			if ($this->getOrmConnection()->isTransactionActive()) {
-				$this->getOrmConnection()->rollBack();
-			}
-
 			$this->databaseHelper->clear();
 		}
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
-	 * @throws DBAL\Exception
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws Exceptions\Runtime
 	 */
-	private function deleteDevice(Style\SymfonyStyle $io, Entities\VieraConnector $connector): void
+	private function deleteDevice(Style\SymfonyStyle $io, Entities\Connectors\Connector $connector): void
 	{
 		$device = $this->askWhichDevice($io, $connector);
 
@@ -1659,12 +1648,12 @@ class Install extends Console\Command\Command
 
 		try {
 			// Start transaction connection to the database
-			$this->getOrmConnection()->beginTransaction();
+			$this->databaseHelper->beginTransaction();
 
 			$this->devicesManager->delete($device);
 
 			// Commit all changes into database
-			$this->getOrmConnection()->commit();
+			$this->databaseHelper->commitTransaction();
 
 			$io->success(
 				$this->translator->translate(
@@ -1677,19 +1666,14 @@ class Install extends Console\Command\Command
 			$this->logger->error(
 				'An unhandled error occurred',
 				[
-					'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'install-cmd',
-					'exception' => BootstrapHelpers\Logger::buildException($ex),
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
 				],
 			);
 
 			$io->error($this->translator->translate('//viera-connector.cmd.install.messages.remove.device.error'));
 		} finally {
-			// Revert all changes when error occur
-			if ($this->getOrmConnection()->isTransactionActive()) {
-				$this->getOrmConnection()->rollBack();
-			}
-
 			$this->databaseHelper->clear();
 		}
 	}
@@ -1698,16 +1682,18 @@ class Install extends Console\Command\Command
 	 * @throws DevicesExceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function listDevices(Style\SymfonyStyle $io, Entities\VieraConnector $connector): void
+	private function listDevices(Style\SymfonyStyle $io, Entities\Connectors\Connector $connector): void
 	{
 		$findDevicesQuery = new Queries\Entities\FindDevices();
 		$findDevicesQuery->forConnector($connector);
 
-		$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+		$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\Devices\Device::class);
 		usort(
 			$devices,
-			static fn (Entities\VieraDevice $a, Entities\VieraDevice $b): int => (
+			static fn (Entities\Devices\Device $a, Entities\Devices\Device $b): int => (
 				($a->getName() ?? $a->getIdentifier()) <=> ($b->getName() ?? $b->getIdentifier())
 			),
 		);
@@ -1737,14 +1723,18 @@ class Install extends Console\Command\Command
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function discoverDevices(Style\SymfonyStyle $io, Entities\VieraConnector $connector): void
+	private function discoverDevices(Style\SymfonyStyle $io, Entities\Connectors\Connector $connector): void
 	{
 		if ($this->output === null) {
 			throw new Exceptions\InvalidState('Something went wrong, console output is not configured');
@@ -1764,7 +1754,7 @@ class Install extends Console\Command\Command
 
 		$result = $serviceCmd->run(new Input\ArrayInput([
 			'--connector' => $connector->getId()->toString(),
-			'--mode' => DevicesCommands\Connector::MODE_DISCOVER,
+			'--mode' => DevicesTypes\ConnectorMode::DISCOVER->value,
 			'--no-interaction' => true,
 			'--quiet' => true,
 		]), $this->output);
@@ -1792,11 +1782,12 @@ class Install extends Console\Command\Command
 		]);
 
 		$foundDevices = 0;
+		$encryptedDevices = [];
 
 		$findDevicesQuery = new Queries\Entities\FindDevices();
 		$findDevicesQuery->forConnector($connector);
 
-		$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\VieraDevice::class);
+		$devices = $this->devicesRepository->findAllBy($findDevicesQuery, Entities\Devices\Device::class);
 
 		foreach ($devices as $device) {
 			$createdAt = $device->getCreatedAt();
@@ -1817,6 +1808,16 @@ class Install extends Console\Command\Command
 					$device->getIpAddress() ?? 'N/A',
 					$isEncrypted ? 'yes' : 'no',
 				]);
+
+				if (
+					$isEncrypted
+					&& (
+						$device->getAppId() === null
+						|| $device->getEncryptionKey() === null
+					)
+				) {
+					$encryptedDevices[] = $device;
+				}
 			}
 		}
 
@@ -1834,19 +1835,26 @@ class Install extends Console\Command\Command
 			$io->info($this->translator->translate('//viera-connector.cmd.install.messages.noDevicesFound'));
 		}
 
+		if ($encryptedDevices !== []) {
+			$this->processEncryptedDevices($io, $connector, $encryptedDevices);
+		}
+
 		$io->success($this->translator->translate('//viera-connector.cmd.install.messages.discover.success'));
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function askInstallAction(Style\SymfonyStyle $io): void
 	{
@@ -1922,20 +1930,23 @@ class Install extends Console\Command\Command
 	}
 
 	/**
-	 * @throws BootstrapExceptions\InvalidState
+	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
 	 * @throws RuntimeException
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
 	private function askManageConnectorAction(
 		Style\SymfonyStyle $io,
-		Entities\VieraConnector $connector,
+		Entities\Connectors\Connector $connector,
 	): void
 	{
 		$question = new Console\Question\ChoiceQuestion(
@@ -2011,7 +2022,7 @@ class Install extends Console\Command\Command
 
 	private function askConnectorName(
 		Style\SymfonyStyle $io,
-		Entities\VieraConnector|null $connector = null,
+		Entities\Connectors\Connector|null $connector = null,
 	): string|null
 	{
 		$question = new Console\Question\Question(
@@ -2024,7 +2035,7 @@ class Install extends Console\Command\Command
 		return strval($name) === '' ? null : strval($name);
 	}
 
-	private function askDeviceName(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string|null
+	private function askDeviceName(Style\SymfonyStyle $io, Entities\Devices\Device|null $device = null): string|null
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.name'),
@@ -2039,8 +2050,10 @@ class Install extends Console\Command\Command
 	/**
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function askDeviceIpAddress(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string
+	private function askDeviceIpAddress(Style\SymfonyStyle $io, Entities\Devices\Device|null $device = null): string
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.ipAddress'),
@@ -2064,8 +2077,10 @@ class Install extends Console\Command\Command
 	/**
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function askDevicePort(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): int
+	private function askDevicePort(Style\SymfonyStyle $io, Entities\Devices\Device|null $device = null): int
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.port'),
@@ -2089,8 +2104,10 @@ class Install extends Console\Command\Command
 	/**
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function askDeviceMacAddress(Style\SymfonyStyle $io, Entities\VieraDevice|null $device = null): string
+	private function askDeviceMacAddress(Style\SymfonyStyle $io, Entities\Devices\Device|null $device = null): string
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.macAddress'),
@@ -2113,15 +2130,15 @@ class Install extends Console\Command\Command
 
 	private function askDevicePinCode(
 		Style\SymfonyStyle $io,
-		Entities\VieraConnector $connector,
+		Entities\Connectors\Connector $connector,
 		API\TelevisionApi $televisionApi,
-	): Entities\API\AuthorizePinCode
+	): API\Messages\Response\AuthorizePinCode
 	{
 		$question = new Console\Question\Question(
 			$this->translator->translate('//viera-connector.cmd.install.questions.provide.device.pinCode'),
 		);
 		$question->setValidator(
-			function (string|null $answer) use ($connector, $televisionApi): Entities\API\AuthorizePinCode {
+			function (string|null $answer) use ($connector, $televisionApi): API\Messages\Response\AuthorizePinCode {
 				if ($answer !== null && $answer !== '') {
 					try {
 						return $televisionApi->authorizePinCode($answer, strval($this->challengeKey), false);
@@ -2149,7 +2166,7 @@ class Install extends Console\Command\Command
 		);
 
 		$authorization = $io->askQuestion($question);
-		assert($authorization instanceof Entities\API\AuthorizePinCode);
+		assert($authorization instanceof API\Messages\Response\AuthorizePinCode);
 
 		return $authorization;
 	}
@@ -2205,7 +2222,7 @@ class Install extends Console\Command\Command
 	/**
 	 * @throws DevicesExceptions\InvalidState
 	 */
-	private function askWhichConnector(Style\SymfonyStyle $io): Entities\VieraConnector|null
+	private function askWhichConnector(Style\SymfonyStyle $io): Entities\Connectors\Connector|null
 	{
 		$connectors = [];
 
@@ -2213,11 +2230,11 @@ class Install extends Console\Command\Command
 
 		$systemConnectors = $this->connectorsRepository->findAllBy(
 			$findConnectorsQuery,
-			Entities\VieraConnector::class,
+			Entities\Connectors\Connector::class,
 		);
 		usort(
 			$systemConnectors,
-			static fn (Entities\VieraConnector $a, Entities\VieraConnector $b): int => (
+			static fn (Entities\Connectors\Connector $a, Entities\Connectors\Connector $b): int => (
 				($a->getName() ?? $a->getIdentifier()) <=> ($b->getName() ?? $b->getIdentifier())
 			),
 		);
@@ -2239,7 +2256,7 @@ class Install extends Console\Command\Command
 		$question->setErrorMessage(
 			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 		);
-		$question->setValidator(function (string|int|null $answer) use ($connectors): Entities\VieraConnector {
+		$question->setValidator(function (string|int|null $answer) use ($connectors): Entities\Connectors\Connector {
 			if ($answer === null) {
 				throw new Exceptions\Runtime(
 					sprintf(
@@ -2261,7 +2278,7 @@ class Install extends Console\Command\Command
 
 				$connector = $this->connectorsRepository->findOneBy(
 					$findConnectorQuery,
-					Entities\VieraConnector::class,
+					Entities\Connectors\Connector::class,
 				);
 
 				if ($connector !== null) {
@@ -2278,7 +2295,7 @@ class Install extends Console\Command\Command
 		});
 
 		$connector = $io->askQuestion($question);
-		assert($connector instanceof Entities\VieraConnector);
+		assert($connector instanceof Entities\Connectors\Connector);
 
 		return $connector;
 	}
@@ -2288,8 +2305,8 @@ class Install extends Console\Command\Command
 	 */
 	private function askWhichDevice(
 		Style\SymfonyStyle $io,
-		Entities\VieraConnector $connector,
-	): Entities\VieraDevice|null
+		Entities\Connectors\Connector $connector,
+	): Entities\Devices\Device|null
 	{
 		$devices = [];
 
@@ -2298,11 +2315,11 @@ class Install extends Console\Command\Command
 
 		$connectorDevices = $this->devicesRepository->findAllBy(
 			$findDevicesQuery,
-			Entities\VieraDevice::class,
+			Entities\Devices\Device::class,
 		);
 		usort(
 			$connectorDevices,
-			static fn (Entities\VieraDevice $a, Entities\VieraDevice $b): int => (
+			static fn (Entities\Devices\Device $a, Entities\Devices\Device $b): int => (
 				($a->getName() ?? $a->getIdentifier()) <=> ($b->getName() ?? $b->getIdentifier())
 			),
 		);
@@ -2325,7 +2342,7 @@ class Install extends Console\Command\Command
 			$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 		);
 		$question->setValidator(
-			function (string|int|null $answer) use ($connector, $devices): Entities\VieraDevice {
+			function (string|int|null $answer) use ($connector, $devices): Entities\Devices\Device {
 				if ($answer === null) {
 					throw new Exceptions\Runtime(
 						sprintf(
@@ -2348,7 +2365,7 @@ class Install extends Console\Command\Command
 
 					$device = $this->devicesRepository->findOneBy(
 						$findDeviceQuery,
-						Entities\VieraDevice::class,
+						Entities\Devices\Device::class,
 					);
 
 					if ($device !== null) {
@@ -2366,23 +2383,212 @@ class Install extends Console\Command\Command
 		);
 
 		$device = $io->askQuestion($question);
-		assert($device instanceof Entities\VieraDevice);
+		assert($device instanceof Entities\Devices\Device);
 
 		return $device;
 	}
 
 	/**
-	 * @throws Exceptions\Runtime
+	 * @param array<Entities\Devices\Device> $encryptedDevices
+	 *
+	 * @throws ApplicationExceptions\InvalidState
+	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws Exceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws TypeError
+	 * @throws ValueError
 	 */
-	private function getOrmConnection(): DBAL\Connection
+	private function processEncryptedDevices(
+		Style\SymfonyStyle $io,
+		Entities\Connectors\Connector $connector,
+		array $encryptedDevices,
+	): void
 	{
-		$connection = $this->managerRegistry->getConnection();
+		$io->info($this->translator->translate('//viera-connector.cmd.install.messages.foundEncryptedDevices'));
 
-		if ($connection instanceof DBAL\Connection) {
-			return $connection;
+		$question = new Console\Question\ConfirmationQuestion(
+			$this->translator->translate('//viera-connector.cmd.install.questions.pairDevice'),
+			false,
+		);
+
+		$continue = (bool) $io->askQuestion($question);
+
+		if ($continue) {
+			foreach ($encryptedDevices as $device) {
+				if ($device->getIpAddress() === null) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.install.messages.missingIpAddress',
+							['device' => $device->getName()],
+						),
+					);
+
+					continue;
+				}
+
+				$io->info(
+					$this->translator->translate(
+						'//viera-connector.cmd.install.messages.pairing.started',
+						['device' => $device->getName()],
+					),
+				);
+
+				try {
+					$televisionApi = $this->televisionApiFactory->create(
+						$device->getIdentifier(),
+						$device->getIpAddress(),
+						$device->getPort(),
+					);
+					$televisionApi->connect();
+				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.install.messages.device.connectionFailed',
+							['device' => $device->getName()],
+						),
+					);
+
+					$this->logger->error(
+						'Creating api client failed',
+						[
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
+							'type' => 'install-cmd',
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
+						],
+					);
+
+					continue;
+				}
+
+				try {
+					$isTurnedOn = $televisionApi->isTurnedOn(true);
+				} catch (Throwable $ex) {
+					$io->error(
+						$this->translator->translate(
+							'//viera-connector.cmd.install.messages.device.pairingFailed',
+							['device' => $device->getName()],
+						),
+					);
+
+					$this->logger->error(
+						'Checking screen status failed',
+						[
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
+							'type' => 'install-cmd',
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
+						],
+					);
+
+					continue;
+				}
+
+				if ($isTurnedOn === false) {
+					$io->warning(
+						$this->translator->translate(
+							'//viera-connector.cmd.install.messages.device.offline',
+							['device' => $device->getName()],
+						),
+					);
+
+					$question = new Console\Question\ConfirmationQuestion(
+						$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
+						false,
+					);
+
+					$continue = (bool) $io->askQuestion($question);
+
+					if (!$continue) {
+						continue;
+					}
+				}
+
+				try {
+					$this->challengeKey = $televisionApi
+						->requestPinCode($connector->getName() ?? $connector->getIdentifier(), false)
+						->getChallengeKey();
+
+					$authorization = $this->askDevicePinCode($io, $connector, $televisionApi);
+
+					$televisionApi = $this->televisionApiFactory->create(
+						$device->getIdentifier(),
+						$device->getIpAddress(),
+						$device->getPort(),
+						$authorization->getAppId(),
+						$authorization->getEncryptionKey(),
+					);
+					$televisionApi->connect();
+				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
+					$io->error(
+						$this->translator->translate('//viera-connector.cmd.install.messages.device.connectionFailed'),
+					);
+
+					$this->logger->error(
+						'Pin code pairing failed',
+						[
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
+							'type' => 'install-cmd',
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
+						],
+					);
+
+					return;
+				}
+
+				$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
+				$findDevicePropertyQuery->byDeviceId($device->getId());
+				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
+
+				$appIdProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
+
+				if ($appIdProperty === null) {
+					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
+						'entity' => DevicesEntities\Devices\Properties\Variable::class,
+						'device' => $device,
+						'identifier' => Types\DevicePropertyIdentifier::APP_ID->value,
+						'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
+						'dataType' => MetadataTypes\DataType::STRING,
+						'value' => $authorization->getAppId(),
+						'format' => null,
+					]));
+				} else {
+					$this->devicesPropertiesManager->update($appIdProperty, Utils\ArrayHash::from([
+						'value' => $authorization->getAppId(),
+					]));
+				}
+
+				$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
+				$findDevicePropertyQuery->byDeviceId($device->getId());
+				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTION_KEY);
+
+				$encryptionKeyProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
+
+				if ($encryptionKeyProperty === null) {
+					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
+						'entity' => DevicesEntities\Devices\Properties\Variable::class,
+						'device' => $device,
+						'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
+						'name' => DevicesUtilities\Name::createName(
+							Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
+						),
+						'dataType' => MetadataTypes\DataType::STRING,
+						'value' => $authorization->getEncryptionKey(),
+						'format' => null,
+					]));
+				} else {
+					$this->devicesPropertiesManager->update($encryptionKeyProperty, Utils\ArrayHash::from([
+						'value' => $authorization->getEncryptionKey(),
+					]));
+				}
+
+				$io->success(
+					$this->translator->translate(
+						'//viera-connector.cmd.install.messages.pairing.finished',
+						['device' => $device->getName()],
+					),
+				);
+			}
 		}
-
-		throw new Exceptions\Runtime('Database connection could not be established');
 	}
 
 }

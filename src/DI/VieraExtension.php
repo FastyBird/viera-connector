@@ -30,13 +30,15 @@ use FastyBird\Connector\Viera\Schemas;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Subscribers;
 use FastyBird\Connector\Viera\Writers;
-use FastyBird\Library\Bootstrap\Boot as BootstrapBoot;
+use FastyBird\Library\Application\Boot as ApplicationBoot;
 use FastyBird\Library\Exchange\DI as ExchangeDI;
+use FastyBird\Library\Metadata;
+use FastyBird\Library\Metadata\Documents as MetadataDocuments;
 use FastyBird\Module\Devices\DI as DevicesDI;
 use Nette\DI;
-use Nette\Schema;
-use stdClass;
-use function assert;
+use Nettrine\ORM as NettrineORM;
+use function array_keys;
+use function array_pop;
 use const DIRECTORY_SEPARATOR;
 
 /**
@@ -53,35 +55,21 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 	public const NAME = 'fbVieraConnector';
 
 	public static function register(
-		BootstrapBoot\Configurator $config,
+		ApplicationBoot\Configurator $config,
 		string $extensionName = self::NAME,
 	): void
 	{
 		$config->onCompile[] = static function (
-			BootstrapBoot\Configurator $config,
+			ApplicationBoot\Configurator $config,
 			DI\Compiler $compiler,
 		) use ($extensionName): void {
 			$compiler->addExtension($extensionName, new self());
 		};
 	}
 
-	public function getConfigSchema(): Schema\Schema
-	{
-		return Schema\Expect::structure([
-			'writer' => Schema\Expect::anyOf(
-				Writers\Event::NAME,
-				Writers\Exchange::NAME,
-			)->default(
-				Writers\Exchange::NAME,
-			),
-		]);
-	}
-
 	public function loadConfiguration(): void
 	{
 		$builder = $this->getContainerBuilder();
-		$configuration = $this->getConfig();
-		assert($configuration instanceof stdClass);
 
 		$logger = $builder->addDefinition($this->prefix('logger'), new DI\Definitions\ServiceDefinition())
 			->setType(Viera\Logger::class)
@@ -91,18 +79,16 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		 * WRITERS
 		 */
 
-		if ($configuration->writer === Writers\Event::NAME) {
-			$builder->addFactoryDefinition($this->prefix('writers.event'))
-				->setImplement(Writers\EventFactory::class)
-				->getResultDefinition()
-				->setType(Writers\Event::class);
-		} elseif ($configuration->writer === Writers\Exchange::NAME) {
-			$builder->addFactoryDefinition($this->prefix('writers.exchange'))
-				->setImplement(Writers\ExchangeFactory::class)
-				->getResultDefinition()
-				->setType(Writers\Exchange::class)
-				->addTag(ExchangeDI\ExchangeExtension::CONSUMER_STATE, false);
-		}
+		$builder->addFactoryDefinition($this->prefix('writers.event'))
+			->setImplement(Writers\EventFactory::class)
+			->getResultDefinition()
+			->setType(Writers\Event::class);
+
+		$builder->addFactoryDefinition($this->prefix('writers.exchange'))
+			->setImplement(Writers\ExchangeFactory::class)
+			->getResultDefinition()
+			->setType(Writers\Exchange::class)
+			->addTag(ExchangeDI\ExchangeExtension::CONSUMER_STATE, false);
 
 		/**
 		 * SERVICES & FACTORIES
@@ -114,7 +100,10 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		)
 			->setType(Services\MulticastFactory::class);
 
-		$builder->addDefinition($this->prefix('services.httpClientFactory'), new DI\Definitions\ServiceDefinition())
+		$builder->addDefinition(
+			$this->prefix('services.httpClientFactory'),
+			new DI\Definitions\ServiceDefinition(),
+		)
 			->setType(Services\HttpClientFactory::class);
 
 		$builder->addDefinition(
@@ -231,34 +220,34 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		 * JSON-API SCHEMAS
 		 */
 
-		$builder->addDefinition($this->prefix('schemas.connector.viera'), new DI\Definitions\ServiceDefinition())
-			->setType(Schemas\VieraConnector::class);
+		$builder->addDefinition($this->prefix('schemas.connector'), new DI\Definitions\ServiceDefinition())
+			->setType(Schemas\Connectors\Connector::class);
 
-		$builder->addDefinition($this->prefix('schemas.device.viera'), new DI\Definitions\ServiceDefinition())
-			->setType(Schemas\VieraDevice::class);
+		$builder->addDefinition($this->prefix('schemas.device'), new DI\Definitions\ServiceDefinition())
+			->setType(Schemas\Devices\Device::class);
 
-		$builder->addDefinition($this->prefix('schemas.channel.viera'), new DI\Definitions\ServiceDefinition())
-			->setType(Schemas\VieraChannel::class);
+		$builder->addDefinition($this->prefix('schemas.channel'), new DI\Definitions\ServiceDefinition())
+			->setType(Schemas\Channels\Channel::class);
 
 		/**
 		 * JSON-API HYDRATORS
 		 */
 
-		$builder->addDefinition($this->prefix('hydrators.connector.viera'), new DI\Definitions\ServiceDefinition())
-			->setType(Hydrators\VieraConnector::class);
+		$builder->addDefinition($this->prefix('hydrators.connector'), new DI\Definitions\ServiceDefinition())
+			->setType(Hydrators\Connectors\Connector::class);
 
-		$builder->addDefinition($this->prefix('hydrators.device.viera'), new DI\Definitions\ServiceDefinition())
-			->setType(Hydrators\VieraDevice::class);
+		$builder->addDefinition($this->prefix('hydrators.device'), new DI\Definitions\ServiceDefinition())
+			->setType(Hydrators\Devices\Device::class);
 
-		$builder->addDefinition($this->prefix('hydrators.channel.viera'), new DI\Definitions\ServiceDefinition())
-			->setType(Hydrators\VieraChannel::class);
+		$builder->addDefinition($this->prefix('hydrators.channel'), new DI\Definitions\ServiceDefinition())
+			->setType(Hydrators\Channels\Channel::class);
 
 		/**
 		 * HELPERS
 		 */
 
-		$builder->addDefinition($this->prefix('helpers.entity'), new DI\Definitions\ServiceDefinition())
-			->setType(Helpers\Entity::class);
+		$builder->addDefinition($this->prefix('helpers.messageBuilder'), new DI\Definitions\ServiceDefinition())
+			->setType(Helpers\MessageBuilder::class);
 
 		$builder->addDefinition($this->prefix('helpers.device'), new DI\Definitions\ServiceDefinition())
 			->setType(Helpers\Device::class);
@@ -290,11 +279,12 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 			->setImplement(Connector\ConnectorFactory::class)
 			->addTag(
 				DevicesDI\DevicesExtension::CONNECTOR_TYPE_TAG,
-				Entities\VieraConnector::TYPE,
+				Entities\Connectors\Connector::TYPE,
 			)
 			->getResultDefinition()
 			->setType(Connector\Connector::class)
 			->setArguments([
+				'writersFactories' => $builder->findByType(Writers\WriterFactory::class),
 				'logger' => $logger,
 			]);
 	}
@@ -309,27 +299,65 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		$builder = $this->getContainerBuilder();
 
 		/**
-		 * Doctrine entities
+		 * DOCTRINE ENTITIES
 		 */
 
-		$ormAnnotationDriverService = $builder->getDefinition('nettrineOrmAnnotations.annotationDriver');
+		$services = $builder->findByTag(NettrineORM\DI\OrmAttributesExtension::DRIVER_TAG);
 
-		if ($ormAnnotationDriverService instanceof DI\Definitions\ServiceDefinition) {
-			$ormAnnotationDriverService->addSetup(
-				'addPaths',
-				[[__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Entities']],
-			);
+		if ($services !== []) {
+			$services = array_keys($services);
+			$ormAttributeDriverServiceName = array_pop($services);
+
+			$ormAttributeDriverService = $builder->getDefinition($ormAttributeDriverServiceName);
+
+			if ($ormAttributeDriverService instanceof DI\Definitions\ServiceDefinition) {
+				$ormAttributeDriverService->addSetup(
+					'addPaths',
+					[[__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Entities']],
+				);
+
+				$ormAttributeDriverChainService = $builder->getDefinitionByType(
+					Persistence\Mapping\Driver\MappingDriverChain::class,
+				);
+
+				if ($ormAttributeDriverChainService instanceof DI\Definitions\ServiceDefinition) {
+					$ormAttributeDriverChainService->addSetup('addDriver', [
+						$ormAttributeDriverService,
+						'FastyBird\Connector\Viera\Entities',
+					]);
+				}
+			}
 		}
 
-		$ormAnnotationDriverChainService = $builder->getDefinitionByType(
-			Persistence\Mapping\Driver\MappingDriverChain::class,
-		);
+		/**
+		 * APPLICATION DOCUMENTS
+		 */
 
-		if ($ormAnnotationDriverChainService instanceof DI\Definitions\ServiceDefinition) {
-			$ormAnnotationDriverChainService->addSetup('addDriver', [
-				$ormAnnotationDriverService,
-				'FastyBird\Connector\Viera\Entities',
-			]);
+		$services = $builder->findByTag(Metadata\DI\MetadataExtension::DRIVER_TAG);
+
+		if ($services !== []) {
+			$services = array_keys($services);
+			$documentAttributeDriverServiceName = array_pop($services);
+
+			$documentAttributeDriverService = $builder->getDefinition($documentAttributeDriverServiceName);
+
+			if ($documentAttributeDriverService instanceof DI\Definitions\ServiceDefinition) {
+				$documentAttributeDriverService->addSetup(
+					'addPaths',
+					[[__DIR__ . DIRECTORY_SEPARATOR . '..' . DIRECTORY_SEPARATOR . 'Documents']],
+				);
+
+				$documentAttributeDriverChainService = $builder->getDefinitionByType(
+					MetadataDocuments\Mapping\Driver\MappingDriverChain::class,
+				);
+
+				if ($documentAttributeDriverChainService instanceof DI\Definitions\ServiceDefinition) {
+					$documentAttributeDriverChainService->addSetup('addDriver', [
+						$documentAttributeDriverService,
+						'FastyBird\Connector\Viera\Documents',
+					]);
+				}
+			}
 		}
 	}
 

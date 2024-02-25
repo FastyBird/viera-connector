@@ -15,16 +15,15 @@
 
 namespace FastyBird\Connector\Viera\API;
 
+use Closure;
 use DateTimeInterface;
-use Evenement;
 use FastyBird\Connector\Viera;
-use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\DateTimeFactory;
-use FastyBird\Library\Bootstrap\Helpers as BootstrapHelpers;
+use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Fig\Http\Message\RequestMethodInterface;
 use GuzzleHttp;
@@ -62,6 +61,7 @@ use function preg_match_all;
 use function preg_replace;
 use function preg_split;
 use function property_exists;
+use function React\Async\async;
 use function simplexml_load_string;
 use function sprintf;
 use function str_contains;
@@ -82,11 +82,10 @@ use function unpack;
  *
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  */
-final class TelevisionApi implements Evenement\EventEmitterInterface
+final class TelevisionApi
 {
 
 	use Nette\SmartObject;
-	use Evenement\EventEmitterTrait;
 
 	private const EVENTS_TIMEOUT = 10;
 
@@ -104,6 +103,12 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	private const URL_CONTROL_NRC_DEF = '/nrc/sdd_0.xml';
 
+	/** @var array<Closure(Messages\Message $message): void> */
+	public array $onMessage = [];
+
+	/** @var array<Closure(Throwable $ex): void> */
+	public array $onError = [];
+
 	private bool $isEncrypted;
 
 	private bool $isConnected = false;
@@ -118,7 +123,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 	private Socket\ServerInterface|null $eventsServer = null;
 
-	private Entities\API\Session|null $session = null;
+	private Messages\Response\Session|null $session = null;
 
 	public function __construct(
 		private readonly string $identifier,
@@ -130,7 +135,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		private readonly Services\HttpClientFactory $httpClientFactory,
 		private readonly Services\SocketClientFactory $socketClientFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
-		private readonly Helpers\Entity $entityHelper,
+		private readonly Helpers\MessageBuilder $messageBuilder,
 		private readonly Viera\Logger $logger,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
 	)
@@ -182,7 +187,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\Session> : Entities\API\Session)
+	 * @return ($async is true ? Promise\PromiseInterface<Messages\Response\Session> : Messages\Response\Session)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -190,7 +195,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 */
 	public function requestSessionId(
 		bool $async = true,
-	): Promise\PromiseInterface|Entities\API\Session
+	): Promise\PromiseInterface|Messages\Response\Session
 	{
 		$deferred = new Promise\Deferred();
 
@@ -256,14 +261,14 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\DeviceSpecs> : Entities\API\DeviceSpecs)
+	 * @return ($async is true ? Promise\PromiseInterface<Messages\Response\DeviceSpecs> : Messages\Response\DeviceSpecs)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
 	 */
 	public function getSpecs(
 		bool $async = true,
-	): Promise\PromiseInterface|Entities\API\DeviceSpecs
+	): Promise\PromiseInterface|Messages\Response\DeviceSpecs
 	{
 		$deferred = new Promise\Deferred();
 
@@ -304,7 +309,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\DeviceApps> : Entities\API\DeviceApps)
+	 * @return ($async is true ? Promise\PromiseInterface<Messages\Response\DeviceApps> : Messages\Response\DeviceApps)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -312,7 +317,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 */
 	public function getApps(
 		bool $async = true,
-	): Promise\PromiseInterface|Entities\API\DeviceApps
+	): Promise\PromiseInterface|Messages\Response\DeviceApps
 	{
 		$deferred = new Promise\Deferred();
 
@@ -368,7 +373,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\DeviceVectorInfo> : Entities\API\DeviceVectorInfo)
+	 * @return ($async is true ? Promise\PromiseInterface<Messages\Response\DeviceVectorInfo> : Messages\Response\DeviceVectorInfo)
 	 *
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\TelevisionApiCall
@@ -376,7 +381,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	 */
 	public function getVectorInfo(
 		bool $async = true,
-	): Promise\PromiseInterface|Entities\API\DeviceVectorInfo
+	): Promise\PromiseInterface|Messages\Response\DeviceVectorInfo
 	{
 		$deferred = new Promise\Deferred();
 
@@ -729,7 +734,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				self::URL_CONTROL_NRC,
 				self::URN_REMOTE_CONTROL,
 				'X_SendKey',
-				sprintf('<X_KeyEvent>%s</X_KeyEvent>', is_string($key) ? $key : $key->getValue()),
+				sprintf('<X_KeyEvent>%s</X_KeyEvent>', is_string($key) ? $key : $key->value),
 				'u',
 			);
 		} catch (Exceptions\Encrypt $ex) {
@@ -859,7 +864,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 								});
 
 						} else {
-							$this->sendKey(Types\ActionKey::get(Types\ActionKey::POWER))
+							$this->sendKey(Types\ActionKey::POWER)
 								->then(static function () use ($deferred): void {
 									$deferred->resolve(true);
 								})
@@ -892,7 +897,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 					if ($status === false) {
 						$deferred->resolve(true);
 					} else {
-						$this->sendKey(Types\ActionKey::get(Types\ActionKey::POWER))
+						$this->sendKey(Types\ActionKey::POWER)
 							->then(static function () use ($deferred): void {
 								$deferred->resolve(true);
 							})
@@ -965,14 +970,17 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 		$result = false;
 
-		$timeoutTimer = $this->eventLoop->addTimer($timeout, function () use ($deferred, $runLoop, &$result): void {
-			$deferred->resolve(false);
-			$result = false;
+		$timeoutTimer = $this->eventLoop->addTimer(
+			$timeout,
+			async(function () use ($deferred, $runLoop, &$result): void {
+				$deferred->resolve(false);
+				$result = false;
 
-			if ($runLoop) {
-				$this->eventLoop->stop();
-			}
-		});
+				if ($runLoop) {
+					$this->eventLoop->stop();
+				}
+			}),
+		);
 
 		try {
 			$this->socketClientFactory
@@ -1032,28 +1040,30 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 
 		$result = false;
 
-		$this->on('event-data', function (Entities\API\Event $event) use ($deferred, $runLoop, &$result): void {
-			if ($event->getScreenState() !== null) {
-				$deferred->resolve($event->getScreenState());
-				$result = $event->getScreenState();
-			} else {
-				$deferred->resolve(false);
-				$result = false;
-			}
+		$this->onMessage[] = function (Messages\Message $message) use ($deferred, $runLoop, &$result): void {
+			if ($message instanceof Messages\Response\Event) {
+				if ($message->getScreenState() !== null) {
+					$deferred->resolve($message->getScreenState());
+					$result = $message->getScreenState();
+				} else {
+					$deferred->resolve(false);
+					$result = false;
+				}
 
-			if ($runLoop) {
-				$this->eventLoop->stop();
+				if ($runLoop) {
+					$this->eventLoop->stop();
+				}
 			}
-		});
+		};
 
-		$this->on('event-error', function () use ($deferred, $runLoop, &$result): void {
+		$this->onError[] = function () use ($deferred, $runLoop, &$result): void {
 			$deferred->resolve(false);
 			$result = false;
 
 			if ($runLoop) {
 				$this->eventLoop->stop();
 			}
-		});
+		};
 
 		$doUnsubscribe = false;
 
@@ -1071,7 +1081,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			}
 		}
 
-		$this->eventLoop->addTimer(1.5, function () use ($deferred, $runLoop, &$result, $doUnsubscribe): void {
+		$this->eventLoop->addTimer(1.5, async(function () use ($deferred, $runLoop, &$result, $doUnsubscribe): void {
 			if ($doUnsubscribe) {
 				$this->unsubscribeEvents();
 			}
@@ -1082,7 +1092,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			if ($runLoop) {
 				$this->eventLoop->stop();
 			}
-		});
+		}));
 
 		if ($runLoop) {
 			$this->eventLoop->run();
@@ -1094,7 +1104,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\RequestPinCode> : Entities\API\RequestPinCode)
+	 * @return ($async is true ? Promise\PromiseInterface<Messages\Response\RequestPinCode> : Messages\Response\RequestPinCode)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
@@ -1102,7 +1112,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	public function requestPinCode(
 		string $name,
 		bool $async = true,
-	): Promise\PromiseInterface|Entities\API\RequestPinCode
+	): Promise\PromiseInterface|Messages\Response\RequestPinCode
 	{
 		$deferred = new Promise\Deferred();
 
@@ -1153,7 +1163,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @return ($async is true ? Promise\PromiseInterface<Entities\API\AuthorizePinCode> : Entities\API\AuthorizePinCode)
+	 * @return ($async is true ? Promise\PromiseInterface<Messages\Response\AuthorizePinCode> : Messages\Response\AuthorizePinCode)
 	 *
 	 * @throws Exceptions\TelevisionApiCall
 	 * @throws Exceptions\TelevisionApiError
@@ -1162,7 +1172,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		string $pinCode,
 		string $challengeKey,
 		bool $async = true,
-	): Promise\PromiseInterface|Entities\API\AuthorizePinCode
+	): Promise\PromiseInterface|Messages\Response\AuthorizePinCode
 	{
 		$deferred = new Promise\Deferred();
 
@@ -1387,17 +1397,15 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 						}
 					}
 
-					$this->emit(
-						'event-data',
-						[
-							$this->createEntity(
-								Entities\API\Event::class,
-								[
-									'screen_state' => $this->screenState,
-									'input_mode' => $inputMode,
-								],
-							),
-						],
+					Utils\Arrays::invoke(
+						$this->onMessage,
+						$this->createMessage(
+							Messages\Response\Event::class,
+							[
+								'screen_state' => $this->screenState,
+								'input_mode' => $inputMode,
+							],
+						),
 					);
 
 					$connection->write(
@@ -1406,16 +1414,19 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				});
 
 				$connection->on('error', function (Throwable $ex): void {
-					$this->logger->error('Something went wrong with subscription socket', [
-						'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-						'type' => 'television-api',
-						'exception' => BootstrapHelpers\Logger::buildException($ex),
-						'device' => [
-							'identifier' => $this->identifier,
+					$this->logger->error(
+						'Something went wrong with subscription socket',
+						[
+							'source' => MetadataTypes\Sources\Connector::VIERA->value,
+							'type' => 'television-api',
+							'exception' => ApplicationHelpers\Logger::buildException($ex),
+							'device' => [
+								'identifier' => $this->identifier,
+							],
 						],
-					]);
+					);
 
-					$this->emit('event-error', [$ex]);
+					Utils\Arrays::invoke($this->onError, $ex);
 				});
 			},
 		);
@@ -1429,14 +1440,17 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		try {
 			$client = $this->httpClientFactory->create(false);
 		} catch (InvalidArgumentException $ex) {
-			$this->logger->error('Could not get http client', [
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'television-api',
-				'exception' => BootstrapHelpers\Logger::buildException($ex),
-				'device' => [
-					'identifier' => $this->identifier,
+			$this->logger->error(
+				'Could not get http client',
+				[
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
+					'type' => 'television-api',
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
+					'device' => [
+						'identifier' => $this->identifier,
+					],
 				],
-			]);
+			);
 
 			return false;
 		}
@@ -1444,13 +1458,16 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		$localIpAddress = Helpers\Network::getLocalAddress();
 
 		if ($localIpAddress === null) {
-			$this->logger->error('Could not get connector local address', [
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'television-api',
-				'device' => [
-					'identifier' => $this->identifier,
+			$this->logger->error(
+				'Could not get connector local address',
+				[
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
+					'type' => 'television-api',
+					'device' => [
+						'identifier' => $this->identifier,
+					],
 				],
-			]);
+			);
 
 			return false;
 		}
@@ -1501,14 +1518,17 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		try {
 			$client = $this->httpClientFactory->create(false);
 		} catch (InvalidArgumentException $ex) {
-			$this->logger->error('Could not get http client', [
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'television-api',
-				'exception' => BootstrapHelpers\Logger::buildException($ex),
-				'device' => [
-					'identifier' => $this->identifier,
+			$this->logger->error(
+				'Could not get http client',
+				[
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
+					'type' => 'television-api',
+					'exception' => ApplicationHelpers\Logger::buildException($ex),
+					'device' => [
+						'identifier' => $this->identifier,
+					],
 				],
-			]);
+			);
 
 			$this->eventsServer?->close();
 
@@ -1541,7 +1561,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	private function parseRequestSessionId(
 		Message\RequestInterface $request,
 		Message\ResponseInterface $response,
-	): Entities\API\Session
+	): Messages\Response\Session
 	{
 		$body = $this->sanitizeReceivedPayload($this->getResponseBody($request, $response));
 
@@ -1590,7 +1610,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	private function parseGetSpecs(
 		Message\RequestInterface $request,
 		Message\ResponseInterface $response,
-	): Entities\API\DeviceSpecs
+	): Messages\Response\DeviceSpecs
 	{
 		$specsResponse = simplexml_load_string(
 			$this->sanitizeReceivedPayload($this->getResponseBody($request, $response)),
@@ -1604,8 +1624,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			throw new Exceptions\TelevisionApiCall('Received response is not valid', $request, $response);
 		}
 
-		return $this->createEntity(
-			Entities\API\DeviceSpecs::class,
+		return $this->createMessage(
+			Messages\Response\DeviceSpecs::class,
 			[
 				'device_type' => strval($specsResponse->device->deviceType),
 				'friendly_name' => strval($specsResponse->device->friendlyName),
@@ -1625,7 +1645,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	private function parseGetApps(
 		Message\RequestInterface $request,
 		Message\ResponseInterface $response,
-	): Entities\API\DeviceApps
+	): Messages\Response\DeviceApps
 	{
 		$body = $this->sanitizeReceivedPayload($this->getResponseBody($request, $response));
 
@@ -1705,8 +1725,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			];
 		}
 
-		return $this->createEntity(
-			Entities\API\DeviceApps::class,
+		return $this->createMessage(
+			Messages\Response\DeviceApps::class,
 			[
 				'apps' => $apps,
 			],
@@ -1720,7 +1740,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	private function parseGetVectorInfo(
 		Message\RequestInterface $request,
 		Message\ResponseInterface $response,
-	): Entities\API\DeviceVectorInfo
+	): Messages\Response\DeviceVectorInfo
 	{
 		$body = $this->sanitizeReceivedPayload($this->getResponseBody($request, $response));
 
@@ -1779,8 +1799,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			$devicePort = intval($vectorInfoResponse->Body->X_GetVectorInfoResponse->X_PortNumber);
 		}
 
-		return $this->createEntity(
-			Entities\API\DeviceVectorInfo::class,
+		return $this->createMessage(
+			Messages\Response\DeviceVectorInfo::class,
 			[
 				'port' => $devicePort,
 			],
@@ -1904,7 +1924,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	private function parseRequestPinCode(
 		Message\RequestInterface $request,
 		Message\ResponseInterface $response,
-	): Entities\API\RequestPinCode
+	): Messages\Response\RequestPinCode
 	{
 		$pinCodeResponse = simplexml_load_string(
 			$this->sanitizeReceivedPayload($this->getResponseBody($request, $response)),
@@ -1921,8 +1941,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			throw new Exceptions\TelevisionApiCall('Received response is not valid', $request, $response);
 		}
 
-		return $this->createEntity(
-			Entities\API\RequestPinCode::class,
+		return $this->createMessage(
+			Messages\Response\RequestPinCode::class,
 			[
 				'challenge_key' => strval($pinCodeResponse->Body->X_DisplayPinCodeResponse->X_ChallengeKey),
 			],
@@ -1943,7 +1963,7 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 		array $key,
 		array $iv,
 		array $hmacKey,
-	): Entities\API\AuthorizePinCode
+	): Messages\Response\AuthorizePinCode
 	{
 		$body = $this->sanitizeReceivedPayload($this->getResponseBody($request, $response));
 
@@ -1984,8 +2004,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			$encryptionKey = $matches['encryption_key'];
 		}
 
-		return $this->createEntity(
-			Entities\API\AuthorizePinCode::class,
+		return $this->createMessage(
+			Messages\Response\AuthorizePinCode::class,
 			[
 				'app_id' => $appId,
 				'encryption_key' => $encryptionKey,
@@ -2017,21 +2037,21 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	}
 
 	/**
-	 * @template T of Entities\API\Entity
+	 * @template T of Messages\Message
 	 *
-	 * @param class-string<T> $entity
+	 * @param class-string<T> $message
 	 * @param array<string, mixed> $data
 	 *
 	 * @return T
 	 *
 	 * @throws Exceptions\TelevisionApiError
 	 */
-	private function createEntity(string $entity, array $data): Entities\API\Entity
+	private function createMessage(string $message, array $data): Messages\Message
 	{
 		try {
-			return $this->entityHelper->create($entity, $data);
+			return $this->messageBuilder->create($message, $data);
 		} catch (Exceptions\Runtime $ex) {
-			throw new Exceptions\TelevisionApiError('Could not map data to entity', $ex->getCode(), $ex);
+			throw new Exceptions\TelevisionApiError('Could not map data to message', $ex->getCode(), $ex);
 		}
 	}
 
@@ -2047,23 +2067,26 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	{
 		$deferred = new Promise\Deferred();
 
-		$this->logger->debug(sprintf(
-			'Request: method = %s url = %s',
-			$request->getMethod(),
-			$request->getUri(),
-		), [
-			'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-			'type' => 'television-api',
-			'request' => [
-				'method' => $request->getMethod(),
-				'url' => strval($request->getUri()),
-				'headers' => $request->getHeaders(),
-				'body' => $request->getContent(),
+		$this->logger->debug(
+			sprintf(
+				'Request: method = %s url = %s',
+				$request->getMethod(),
+				$request->getUri(),
+			),
+			[
+				'source' => MetadataTypes\Sources\Connector::VIERA->value,
+				'type' => 'television-api',
+				'request' => [
+					'method' => $request->getMethod(),
+					'url' => strval($request->getUri()),
+					'headers' => $request->getHeaders(),
+					'body' => $request->getContent(),
+				],
+				'device' => [
+					'identifier' => $this->identifier,
+				],
 			],
-			'device' => [
-				'identifier' => $this->identifier,
-			],
-		]);
+		);
 
 		if ($async) {
 			try {
@@ -2090,23 +2113,26 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 								return;
 							}
 
-							$this->logger->debug('Received response', [
-								'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-								'type' => 'television-api',
-								'request' => [
-									'method' => $request->getMethod(),
-									'url' => strval($request->getUri()),
-									'headers' => $request->getHeaders(),
-									'body' => $request->getContent(),
+							$this->logger->debug(
+								'Received response',
+								[
+									'source' => MetadataTypes\Sources\Connector::VIERA->value,
+									'type' => 'television-api',
+									'request' => [
+										'method' => $request->getMethod(),
+										'url' => strval($request->getUri()),
+										'headers' => $request->getHeaders(),
+										'body' => $request->getContent(),
+									],
+									'response' => [
+										'code' => $response->getStatusCode(),
+										'body' => $responseBody,
+									],
+									'device' => [
+										'identifier' => $this->identifier,
+									],
 								],
-								'response' => [
-									'code' => $response->getStatusCode(),
-									'body' => $responseBody,
-								],
-								'device' => [
-									'identifier' => $this->identifier,
-								],
-							]);
+							);
 
 							$deferred->resolve($response);
 						},
@@ -2148,23 +2174,26 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				);
 			}
 
-			$this->logger->debug('Received response', [
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'television-api',
-				'request' => [
-					'method' => $request->getMethod(),
-					'url' => strval($request->getUri()),
-					'headers' => $request->getHeaders(),
-					'body' => $request->getContent(),
+			$this->logger->debug(
+				'Received response',
+				[
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
+					'type' => 'television-api',
+					'request' => [
+						'method' => $request->getMethod(),
+						'url' => strval($request->getUri()),
+						'headers' => $request->getHeaders(),
+						'body' => $request->getContent(),
+					],
+					'response' => [
+						'code' => $response->getStatusCode(),
+						'body' => $responseBody,
+					],
+					'device' => [
+						'identifier' => $this->identifier,
+					],
 				],
-				'response' => [
-					'code' => $response->getStatusCode(),
-					'body' => $responseBody,
-				],
-				'device' => [
-					'identifier' => $this->identifier,
-				],
-			]);
+			);
 
 			return $response;
 		} catch (GuzzleHttp\Exception\GuzzleException | InvalidArgumentException $ex) {
@@ -2190,23 +2219,26 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 	{
 		$deferred = new Promise\Deferred();
 
-		$this->logger->debug(sprintf(
-			'Request: method = %s url = %s',
-			$request->getMethod(),
-			$request->getUri(),
-		), [
-			'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-			'type' => 'television-api',
-			'request' => [
-				'method' => $request->getMethod(),
-				'url' => strval($request->getUri()),
-				'headers' => $request->getHeaders(),
-				'body' => $request->getContent(),
+		$this->logger->debug(
+			sprintf(
+				'Request: method = %s url = %s',
+				$request->getMethod(),
+				$request->getUri(),
+			),
+			[
+				'source' => MetadataTypes\Sources\Connector::VIERA->value,
+				'type' => 'television-api',
+				'request' => [
+					'method' => $request->getMethod(),
+					'url' => strval($request->getUri()),
+					'headers' => $request->getHeaders(),
+					'body' => $request->getContent(),
+				],
+				'device' => [
+					'identifier' => $this->identifier,
+				],
 			],
-			'device' => [
-				'identifier' => $this->identifier,
-			],
-		]);
+		);
 
 		if ($async) {
 			try {
@@ -2233,23 +2265,26 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 								return;
 							}
 
-							$this->logger->debug('Received response', [
-								'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-								'type' => 'television-api',
-								'request' => [
-									'method' => $request->getMethod(),
-									'url' => strval($request->getUri()),
-									'headers' => $request->getHeaders(),
-									'body' => $request->getContent(),
+							$this->logger->debug(
+								'Received response',
+								[
+									'source' => MetadataTypes\Sources\Connector::VIERA->value,
+									'type' => 'television-api',
+									'request' => [
+										'method' => $request->getMethod(),
+										'url' => strval($request->getUri()),
+										'headers' => $request->getHeaders(),
+										'body' => $request->getContent(),
+									],
+									'response' => [
+										'code' => $response->getStatusCode(),
+										'body' => $responseBody,
+									],
+									'device' => [
+										'identifier' => $this->identifier,
+									],
 								],
-								'response' => [
-									'code' => $response->getStatusCode(),
-									'body' => $responseBody,
-								],
-								'device' => [
-									'identifier' => $this->identifier,
-								],
-							]);
+							);
 
 							$deferred->resolve($response);
 						},
@@ -2291,23 +2326,26 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 				);
 			}
 
-			$this->logger->debug('Received response', [
-				'source' => MetadataTypes\ConnectorSource::SOURCE_CONNECTOR_VIERA,
-				'type' => 'television-api',
-				'request' => [
-					'method' => $request->getMethod(),
-					'url' => strval($request->getUri()),
-					'headers' => $request->getHeaders(),
-					'body' => $request->getContent(),
+			$this->logger->debug(
+				'Received response',
+				[
+					'source' => MetadataTypes\Sources\Connector::VIERA->value,
+					'type' => 'television-api',
+					'request' => [
+						'method' => $request->getMethod(),
+						'url' => strval($request->getUri()),
+						'headers' => $request->getHeaders(),
+						'body' => $request->getContent(),
+					],
+					'response' => [
+						'code' => $response->getStatusCode(),
+						'body' => $responseBody,
+					],
+					'device' => [
+						'identifier' => $this->identifier,
+					],
 				],
-				'response' => [
-					'code' => $response->getStatusCode(),
-					'body' => $responseBody,
-				],
-				'device' => [
-					'identifier' => $this->identifier,
-				],
-			]);
+			);
 
 			return $response;
 		} catch (GuzzleHttp\Exception\GuzzleException | InvalidArgumentException $ex) {
@@ -2462,8 +2500,8 @@ final class TelevisionApi implements Evenement\EventEmitterInterface
 			$i += 4;
 		}
 
-		$this->session = $this->createEntity(
-			Entities\API\Session::class,
+		$this->session = $this->createMessage(
+			Messages\Response\Session::class,
 			[
 				'key' => pack('C*', ...$sessionKey),
 				// Derive key from IV
