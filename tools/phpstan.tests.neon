@@ -4,6 +4,3 @@ includes:
 
 parameters:
     resultCachePath: %currentWorkingDirectory%/var/tools/PHPStan/resultCache.tests.php
-
-    ignoreErrors:
-        - message: '#^Return type of call to method PHPUnit\\Framework\\TestCase::createMock\(\) contains unresolvable type.#'

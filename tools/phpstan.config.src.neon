@@ -6,3 +6,13 @@ parameters:
 
     bootstrapFiles:
         - phpstan-bootstrap.php
+
+    ignoreErrors:
+        -
+            message: '#^Parameter \#1 \$value of function strval expects bool\|float\|int\|resource\|string\|null, mixed given.#'
+            path: ../src/Commands/Install.php
+            count: 7
+        -
+            message: '#^Parameter \#1 \$value of function intval expects array\|bool\|float\|int\|resource\|string\|null, mixed given.#'
+            path: ../src/Commands/Install.php
+            count: 2

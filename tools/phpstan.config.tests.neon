@@ -9,3 +9,13 @@ parameters:
 
     scanDirectories:
         - ../src
+
+    ignoreErrors:
+        -
+            message: '#^Return type of call to method PHPUnit\\Framework\\TestCase::createMock\(\) contains unresolvable type.#'
+            path: ../tests/cases/unit/Clients/DiscoveryTest.php
+            count: 4
+        -
+            message: '#^Return type of call to method PHPUnit\\Framework\\TestCase::createMock\(\) contains unresolvable type.#'
+            path: ../tests/cases/unit/API/TelevisionApiTest.php
+            count: 9
