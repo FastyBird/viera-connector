@@ -189,7 +189,7 @@ class Discover extends Console\Command\Command
 			);
 			usort(
 				$systemConnectors,
-				static fn (Documents\Connectors\Connector $a, Documents\Connectors\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier()
+				static fn (Documents\Connectors\Connector $a, Documents\Connectors\Connector $b): int => $a->getIdentifier() <=> $b->getIdentifier(),
 			);
 
 			foreach ($systemConnectors as $connector) {
