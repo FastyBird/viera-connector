@@ -83,6 +83,9 @@ final class Discovery
 	{
 	}
 
+	/**
+	 * @throws RuntimeException
+	 */
 	public function discover(): void
 	{
 		$this->logger->debug(
@@ -156,7 +159,7 @@ final class Discovery
 		$data .= "MX: 1\r\n";
 		$data .= "\r\n";
 
-		$this->sender->send($data, sprintf('%s:%d', self::MCAST_HOST, self::MCAST_PORT));
+		$this->sender?->send($data, sprintf('%s:%d', self::MCAST_HOST, self::MCAST_PORT));
 	}
 
 	public function disconnect(): void

@@ -103,6 +103,7 @@ final class Properties implements Common\EventSubscriber
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
 	 * @throws TypeError
 	 * @throws ValueError
 	 */
@@ -282,6 +283,7 @@ final class Properties implements Common\EventSubscriber
 	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
 	 * @throws TypeError
 	 * @throws ValueError
 	 */

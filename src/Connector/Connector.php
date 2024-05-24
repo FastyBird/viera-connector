@@ -18,16 +18,20 @@ namespace FastyBird\Connector\Viera\Connector;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Clients;
 use FastyBird\Connector\Viera\Documents;
+use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Writers;
 use FastyBird\Library\Exchange\Exceptions as ExchangeExceptions;
+use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
+use FastyBird\Library\Tools\Exceptions as ToolsExceptions;
 use FastyBird\Module\Devices\Connectors as DevicesConnectors;
 use FastyBird\Module\Devices\Documents as DevicesDocuments;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use Nette;
 use React\EventLoop;
 use React\Promise;
+use RuntimeException;
 use function assert;
 use function React\Async\async;
 
@@ -72,8 +76,14 @@ final class Connector implements DevicesConnectors\Connector
 	/**
 	 * @return Promise\PromiseInterface<bool>
 	 *
+	 * @throws DevicesExceptions\InvalidArgument
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws Exceptions\Runtime
 	 * @throws ExchangeExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidArgument
+	 * @throws MetadataExceptions\InvalidState
+	 * @throws MetadataExceptions\MalformedInput
+	 * @throws ToolsExceptions\InvalidArgument
 	 */
 	public function execute(bool $standalone = true): Promise\PromiseInterface
 	{
@@ -131,6 +141,8 @@ final class Connector implements DevicesConnectors\Connector
 
 	/**
 	 * @return Promise\PromiseInterface<bool>
+	 *
+	 * @throws RuntimeException
 	 */
 	public function discover(): Promise\PromiseInterface
 	{
