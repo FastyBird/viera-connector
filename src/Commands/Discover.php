@@ -134,13 +134,13 @@ class Discover extends Console\Command\Command
 
 		$io = new Style\SymfonyStyle($input, $output);
 
-		$io->title($this->translator->translate('//viera-connector.cmd.discover.title'));
+		$io->title((string) $this->translator->translate('//viera-connector.cmd.discover.title'));
 
-		$io->note($this->translator->translate('//viera-connector.cmd.discover.subtitle'));
+		$io->note((string) $this->translator->translate('//viera-connector.cmd.discover.subtitle'));
 
 		if ($input->getOption('no-interaction') === false) {
 			$question = new Console\Question\ConfirmationQuestion(
-				$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
+				(string) $this->translator->translate('//viera-connector.cmd.base.questions.continue'),
 				false,
 			);
 
@@ -173,7 +173,7 @@ class Discover extends Console\Command\Command
 
 			if ($connector === null) {
 				$io->warning(
-					$this->translator->translate('//viera-connector.cmd.discover.messages.connector.notFound'),
+					(string) $this->translator->translate('//viera-connector.cmd.discover.messages.connector.notFound'),
 				);
 
 				return Console\Command\Command::FAILURE;
@@ -198,7 +198,7 @@ class Discover extends Console\Command\Command
 			}
 
 			if (count($connectors) === 0) {
-				$io->warning($this->translator->translate('//viera-connector.cmd.base.messages.noConnectors'));
+				$io->warning((string) $this->translator->translate('//viera-connector.cmd.base.messages.noConnectors'));
 
 				return Console\Command\Command::FAILURE;
 			}
@@ -216,7 +216,9 @@ class Discover extends Console\Command\Command
 
 				if ($connector === null) {
 					$io->warning(
-						$this->translator->translate('//viera-connector.cmd.discover.messages.connector.notFound'),
+						(string) $this->translator->translate(
+							'//viera-connector.cmd.discover.messages.connector.notFound',
+						),
 					);
 
 					return Console\Command\Command::FAILURE;
@@ -224,7 +226,7 @@ class Discover extends Console\Command\Command
 
 				if ($input->getOption('no-interaction') === false) {
 					$question = new Console\Question\ConfirmationQuestion(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.questions.execute',
 							['connector' => $connector->getName() ?? $connector->getIdentifier()],
 						),
@@ -237,18 +239,18 @@ class Discover extends Console\Command\Command
 				}
 			} else {
 				$question = new Console\Question\ChoiceQuestion(
-					$this->translator->translate('//viera-connector.cmd.discover.questions.select.connector'),
+					(string) $this->translator->translate('//viera-connector.cmd.discover.questions.select.connector'),
 					array_values($connectors),
 				);
 				$question->setErrorMessage(
-					$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+					(string) $this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 				);
 				$question->setValidator(
 					function (string|int|null $answer) use ($connectors): Documents\Connectors\Connector {
 						if ($answer === null) {
 							throw new Exceptions\Runtime(
 								sprintf(
-									$this->translator->translate(
+									(string) $this->translator->translate(
 										'//viera-connector.cmd.base.messages.answerNotValid',
 									),
 									$answer,
@@ -278,7 +280,9 @@ class Discover extends Console\Command\Command
 
 						throw new Exceptions\Runtime(
 							sprintf(
-								$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+								(string) $this->translator->translate(
+									'//viera-connector.cmd.base.messages.answerNotValid',
+								),
 								$answer,
 							),
 						);
@@ -292,13 +296,13 @@ class Discover extends Console\Command\Command
 
 		if (!$connector->isEnabled()) {
 			$io->warning(
-				$this->translator->translate('//viera-connector.cmd.discover.messages.connector.disabled'),
+				(string) $this->translator->translate('//viera-connector.cmd.discover.messages.connector.disabled'),
 			);
 
 			return Console\Command\Command::SUCCESS;
 		}
 
-		$io->info($this->translator->translate('//viera-connector.cmd.discover.messages.starting'));
+		$io->info((string) $this->translator->translate('//viera-connector.cmd.discover.messages.starting'));
 
 		$this->executedTime = $this->dateTimeFactory->getNow();
 
@@ -313,10 +317,10 @@ class Discover extends Console\Command\Command
 
 		$io->newLine(2);
 
-		$io->info($this->translator->translate('//viera-connector.cmd.discover.messages.stopping'));
+		$io->info((string) $this->translator->translate('//viera-connector.cmd.discover.messages.stopping'));
 
 		if ($result !== Console\Command\Command::SUCCESS) {
-			$io->error($this->translator->translate('//viera-connector.cmd.execute.messages.error'));
+			$io->error((string) $this->translator->translate('//viera-connector.cmd.execute.messages.error'));
 
 			return Console\Command\Command::FAILURE;
 		}
@@ -345,11 +349,11 @@ class Discover extends Console\Command\Command
 		$table = new Console\Helper\Table($output);
 		$table->setHeaders([
 			'#',
-			$this->translator->translate('//viera-connector.cmd.discover.data.id'),
-			$this->translator->translate('//viera-connector.cmd.discover.data.name'),
-			$this->translator->translate('//viera-connector.cmd.discover.data.model'),
-			$this->translator->translate('//viera-connector.cmd.discover.data.ipAddress'),
-			$this->translator->translate('//viera-connector.cmd.discover.data.encryption'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.data.id'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.data.name'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.data.model'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.data.ipAddress'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.data.encryption'),
 		]);
 
 		$foundDevices = 0;
@@ -398,7 +402,7 @@ class Discover extends Console\Command\Command
 
 		if ($foundDevices > 0) {
 			$io->info(sprintf(
-				$this->translator->translate('//viera-connector.cmd.discover.messages.foundDevices'),
+				(string) $this->translator->translate('//viera-connector.cmd.discover.messages.foundDevices'),
 				$foundDevices,
 			));
 
@@ -407,14 +411,14 @@ class Discover extends Console\Command\Command
 			$io->newLine();
 
 		} else {
-			$io->info($this->translator->translate('//viera-connector.cmd.discover.messages.noDevicesFound'));
+			$io->info((string) $this->translator->translate('//viera-connector.cmd.discover.messages.noDevicesFound'));
 		}
 
 		if ($encryptedDevices !== []) {
 			$this->processEncryptedDevices($io, $connector, $encryptedDevices);
 		}
 
-		$io->success($this->translator->translate('//viera-connector.cmd.discover.messages.success'));
+		$io->success((string) $this->translator->translate('//viera-connector.cmd.discover.messages.success'));
 	}
 
 	/**
@@ -434,10 +438,12 @@ class Discover extends Console\Command\Command
 		array $encryptedDevices,
 	): void
 	{
-		$io->info($this->translator->translate('//viera-connector.cmd.discover.messages.foundEncryptedDevices'));
+		$io->info(
+			(string) $this->translator->translate('//viera-connector.cmd.discover.messages.foundEncryptedDevices'),
+		);
 
 		$question = new Console\Question\ConfirmationQuestion(
-			$this->translator->translate('//viera-connector.cmd.discover.questions.pairDevice'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.questions.pairDevice'),
 			false,
 		);
 
@@ -450,7 +456,7 @@ class Discover extends Console\Command\Command
 
 				if ($device->getIpAddress() === null) {
 					$io->error(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.messages.missingIpAddress',
 							['device' => $device->getName()],
 						),
@@ -460,7 +466,7 @@ class Discover extends Console\Command\Command
 				}
 
 				$io->info(
-					$this->translator->translate(
+					(string) $this->translator->translate(
 						'//viera-connector.cmd.discover.messages.pairing.started',
 						['device' => $device->getName()],
 					),
@@ -475,7 +481,7 @@ class Discover extends Console\Command\Command
 					$televisionApi->connect();
 				} catch (Exceptions\TelevisionApiCall | Exceptions\TelevisionApiError | Exceptions\InvalidState $ex) {
 					$io->error(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.messages.device.connectionFailed',
 							['device' => $device->getName()],
 						),
@@ -497,7 +503,7 @@ class Discover extends Console\Command\Command
 					$isTurnedOn = $televisionApi->isTurnedOn(true);
 				} catch (Throwable $ex) {
 					$io->error(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.messages.device.pairingFailed',
 							['device' => $device->getName()],
 						),
@@ -517,14 +523,14 @@ class Discover extends Console\Command\Command
 
 				if ($isTurnedOn === false) {
 					$io->warning(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.messages.device.offline',
 							['device' => $device->getName()],
 						),
 					);
 
 					$question = new Console\Question\ConfirmationQuestion(
-						$this->translator->translate('//viera-connector.cmd.base.questions.continue'),
+						(string) $this->translator->translate('//viera-connector.cmd.base.questions.continue'),
 						false,
 					);
 
@@ -541,7 +547,7 @@ class Discover extends Console\Command\Command
 						->getChallengeKey();
 				} catch (Exceptions\TelevisionApiError $ex) {
 					$io->error(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.messages.pairing.failed',
 							['device' => $device->getName()],
 						),
@@ -559,7 +565,7 @@ class Discover extends Console\Command\Command
 					continue;
 				} catch (Exceptions\TelevisionApiCall $ex) {
 					$io->error(
-						$this->translator->translate(
+						(string) $this->translator->translate(
 							'//viera-connector.cmd.discover.messages.pairing.failed',
 							['device' => $device->getName()],
 						),
@@ -626,7 +632,7 @@ class Discover extends Console\Command\Command
 				}
 
 				$io->success(
-					$this->translator->translate(
+					(string) $this->translator->translate(
 						'//viera-connector.cmd.discover.messages.pairing.finished',
 						['device' => $device->getName()],
 					),
@@ -642,7 +648,7 @@ class Discover extends Console\Command\Command
 	): API\Messages\Response\AuthorizePinCode
 	{
 		$question = new Console\Question\Question(
-			$this->translator->translate('//viera-connector.cmd.discover.questions.provide.pinCode'),
+			(string) $this->translator->translate('//viera-connector.cmd.discover.questions.provide.pinCode'),
 		);
 		$question->setValidator(
 			function (string|null $answer) use ($connector, $televisionApi): API\Messages\Response\AuthorizePinCode {
@@ -656,7 +662,9 @@ class Discover extends Console\Command\Command
 
 						throw new Exceptions\Runtime(
 							sprintf(
-								$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+								(string) $this->translator->translate(
+									'//viera-connector.cmd.base.messages.answerNotValid',
+								),
 								$answer,
 							),
 						);
@@ -665,7 +673,7 @@ class Discover extends Console\Command\Command
 
 				throw new Exceptions\Runtime(
 					sprintf(
-						$this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
+						(string) $this->translator->translate('//viera-connector.cmd.base.messages.answerNotValid'),
 						$answer,
 					),
 				);
