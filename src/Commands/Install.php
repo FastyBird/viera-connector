@@ -121,7 +121,8 @@ class Install extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
@@ -275,7 +276,8 @@ class Install extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\Runtime
 	 * @throws MetadataExceptions\InvalidArgument
@@ -458,7 +460,8 @@ class Install extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
@@ -1762,7 +1765,10 @@ class Install extends Console\Command\Command
 	 * @throws ApplicationExceptions\InvalidState
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws MetadataExceptions\InvalidArgument
@@ -1883,7 +1889,8 @@ class Install extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
@@ -1970,7 +1977,8 @@ class Install extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws DBAL\Exception
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidState
 	 * @throws Exceptions\Runtime
@@ -2445,7 +2453,10 @@ class Install extends Console\Command\Command
 	 * @param array<Entities\Devices\Device> $encryptedDevices
 	 *
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState

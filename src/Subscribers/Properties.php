@@ -16,6 +16,7 @@
 namespace FastyBird\Connector\Viera\Subscribers;
 
 use Doctrine\Common;
+use Doctrine\DBAL;
 use Doctrine\ORM;
 use Doctrine\Persistence;
 use FastyBird\Connector\Viera\Entities;
@@ -30,7 +31,7 @@ use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Types as DevicesTypes;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
-use IPub\DoctrineCrud;
+use IPub\DoctrineCrud\Exceptions as DoctrineCrudExceptions;
 use Nette;
 use Nette\Utils;
 use TypeError;
@@ -71,7 +72,10 @@ final class Properties implements Common\EventSubscriber
 	 * @param Persistence\Event\LifecycleEventArgs<ORM\EntityManagerInterface> $eventArgs
 	 *
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws TypeError
 	 * @throws ValueError
@@ -99,7 +103,10 @@ final class Properties implements Common\EventSubscriber
 	 * @param Persistence\Event\LifecycleEventArgs<ORM\EntityManagerInterface> $eventArgs
 	 *
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
@@ -126,7 +133,10 @@ final class Properties implements Common\EventSubscriber
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 */
 	private function configureDeviceState(Entities\Devices\Device $device): void
@@ -178,7 +188,10 @@ final class Properties implements Common\EventSubscriber
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws TypeError
 	 * @throws ValueError
@@ -225,7 +238,10 @@ final class Properties implements Common\EventSubscriber
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 */
 	private function processChannelProperty(
@@ -280,7 +296,10 @@ final class Properties implements Common\EventSubscriber
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrud\Exceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState

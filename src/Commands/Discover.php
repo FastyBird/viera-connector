@@ -16,6 +16,7 @@
 namespace FastyBird\Connector\Viera\Commands;
 
 use DateTimeInterface;
+use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Documents;
@@ -117,7 +118,10 @@ class Discover extends Console\Command\Command
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws Console\Exception\InvalidArgumentException
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -333,7 +337,10 @@ class Discover extends Console\Command\Command
 	/**
 	 * @throws ApplicationExceptions\InvalidState
 	 * @throws DevicesExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -425,7 +432,10 @@ class Discover extends Console\Command\Command
 	 * @param array<Documents\Devices\Device> $encryptedDevices
 	 *
 	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DoctrineCrudExceptions\InvalidArgumentException
+	 * @throws DBAL\Exception\UniqueConstraintViolationException
+	 * @throws DoctrineCrudExceptions\EntityCreation
+	 * @throws DoctrineCrudExceptions\InvalidArgument
+	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
