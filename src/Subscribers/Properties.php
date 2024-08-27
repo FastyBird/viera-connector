@@ -19,8 +19,10 @@ use Doctrine\Common;
 use Doctrine\DBAL;
 use Doctrine\ORM;
 use Doctrine\Persistence;
+use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Exceptions;
+use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
 use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
@@ -52,10 +54,10 @@ final class Properties implements Common\EventSubscriber
 	use Nette\SmartObject;
 
 	public function __construct(
+		private readonly Helpers\ChannelProperty $channelProperty,
 		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
 		private readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
 		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		private readonly DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
 	)
 	{
 	}
@@ -72,6 +74,8 @@ final class Properties implements Common\EventSubscriber
 	 * @param Persistence\Event\LifecycleEventArgs<ORM\EntityManagerInterface> $eventArgs
 	 *
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
 	 * @throws DoctrineCrudExceptions\EntityCreation
 	 * @throws DoctrineCrudExceptions\InvalidArgument
@@ -103,10 +107,9 @@ final class Properties implements Common\EventSubscriber
 	 * @param Persistence\Event\LifecycleEventArgs<ORM\EntityManagerInterface> $eventArgs
 	 *
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
@@ -118,6 +121,13 @@ final class Properties implements Common\EventSubscriber
 	{
 		// onFlush was executed before, everything already initialized
 		$entity = $eventArgs->getObject();
+
+		if (
+			$entity instanceof DevicesEntities\Channels\Channel
+			&& $entity->getDevice() instanceof Entities\Devices\Device
+		) {
+			$this->configureDeviceKeys($entity);
+		}
 
 		if (
 			$entity instanceof DevicesEntities\Channels\Properties\Dynamic
@@ -188,118 +198,40 @@ final class Properties implements Common\EventSubscriber
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws TypeError
 	 * @throws ValueError
 	 */
 	private function configureDeviceKeys(DevicesEntities\Channels\Channel $channel): void
 	{
-		$keysProperties = [
-			Types\ActionKey::TV->value => Types\ChannelPropertyIdentifier::KEY_TV,
-			Types\ActionKey::HOME->value => Types\ChannelPropertyIdentifier::KEY_HOME,
-			Types\ActionKey::CH_UP->value => Types\ChannelPropertyIdentifier::KEY_CHANNEL_UP,
-			Types\ActionKey::CH_DOWN->value => Types\ChannelPropertyIdentifier::KEY_CHANNEL_DOWN,
-			Types\ActionKey::VOLUME_UP->value => Types\ChannelPropertyIdentifier::KEY_VOLUME_UP,
-			Types\ActionKey::VOLUME_DOWN->value => Types\ChannelPropertyIdentifier::KEY_VOLUME_DOWN,
-			Types\ActionKey::UP->value => Types\ChannelPropertyIdentifier::KEY_ARROW_UP,
-			Types\ActionKey::DOWN->value => Types\ChannelPropertyIdentifier::KEY_ARROW_DOWN,
-			Types\ActionKey::LEFT->value => Types\ChannelPropertyIdentifier::KEY_ARROW_LEFT,
-			Types\ActionKey::RIGHT->value => Types\ChannelPropertyIdentifier::KEY_ARROW_RIGHT,
-			Types\ActionKey::NUM_0->value => Types\ChannelPropertyIdentifier::KEY_0,
-			Types\ActionKey::NUM_1->value => Types\ChannelPropertyIdentifier::KEY_1,
-			Types\ActionKey::NUM_2->value => Types\ChannelPropertyIdentifier::KEY_2,
-			Types\ActionKey::NUM_3->value => Types\ChannelPropertyIdentifier::KEY_3,
-			Types\ActionKey::NUM_4->value => Types\ChannelPropertyIdentifier::KEY_4,
-			Types\ActionKey::NUM_5->value => Types\ChannelPropertyIdentifier::KEY_5,
-			Types\ActionKey::NUM_6->value => Types\ChannelPropertyIdentifier::KEY_6,
-			Types\ActionKey::NUM_7->value => Types\ChannelPropertyIdentifier::KEY_7,
-			Types\ActionKey::NUM_8->value => Types\ChannelPropertyIdentifier::KEY_8,
-			Types\ActionKey::NUM_9->value => Types\ChannelPropertyIdentifier::KEY_9,
-			Types\ActionKey::RED->value => Types\ChannelPropertyIdentifier::KEY_RED,
-			Types\ActionKey::GREEN->value => Types\ChannelPropertyIdentifier::KEY_GREEN,
-			Types\ActionKey::YELLOW->value => Types\ChannelPropertyIdentifier::KEY_YELLOW,
-			Types\ActionKey::BLUE->value => Types\ChannelPropertyIdentifier::KEY_BLUE,
-			Types\ActionKey::ENTER->value => Types\ChannelPropertyIdentifier::KEY_OK,
-			Types\ActionKey::RETURN->value => Types\ChannelPropertyIdentifier::KEY_BACK,
-		];
-
-		foreach ($keysProperties as $actionKey => $identifier) {
-			$this->processChannelProperty(
-				$channel,
+		foreach (Viera\Constants::KEYS_PROPERTIES as $actionKey => $identifier) {
+			$this->channelProperty->create(
+				DevicesEntities\Channels\Properties\Dynamic::class,
+				$channel->getId(),
+				null,
+				MetadataTypes\DataType::BUTTON,
 				$identifier,
-				Types\ActionKey::from($actionKey),
+				DevicesUtilities\Name::createName($identifier->value),
+				[
+					[
+						MetadataTypes\Payloads\Button::CLICKED->value,
+						Types\ActionKey::from($actionKey)->value,
+						Types\ActionKey::from($actionKey)->value,
+					],
+				],
+				true,
 			);
 		}
 	}
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
-	 * @throws Exceptions\InvalidArgument
-	 */
-	private function processChannelProperty(
-		DevicesEntities\Channels\Channel $channel,
-		Types\ChannelPropertyIdentifier $identifier,
-		Types\ActionKey $key,
-	): void
-	{
-		$findChannelPropertyQuery = new Queries\Entities\FindChannelProperties();
-		$findChannelPropertyQuery->forChannel($channel);
-		$findChannelPropertyQuery->byIdentifier($identifier);
-
-		$property = $this->channelsPropertiesRepository->findOneBy($findChannelPropertyQuery);
-
-		if ($property !== null && !$property instanceof DevicesEntities\Channels\Properties\Dynamic) {
-			$this->channelsPropertiesManager->delete($property);
-
-			$property = null;
-		}
-
-		if ($property === null) {
-			$this->channelsPropertiesManager->create(Utils\ArrayHash::from([
-				'channel' => $channel,
-				'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-				'identifier' => $identifier->value,
-				'name' => DevicesUtilities\Name::createName($identifier->value),
-				'dataType' => MetadataTypes\DataType::BUTTON,
-				'unit' => null,
-				'format' => [
-					[
-						MetadataTypes\Payloads\Button::CLICKED->value,
-						$key->value,
-						$key->value,
-					],
-				],
-				'settable' => true,
-				'queryable' => false,
-			]));
-		} else {
-			$this->channelsPropertiesManager->update($property, Utils\ArrayHash::from([
-				'name' => DevicesUtilities\Name::createName($identifier->value),
-				'dataType' => MetadataTypes\DataType::BUTTON,
-				'unit' => null,
-				'format' => [
-					$key->value,
-				],
-				'settable' => true,
-				'queryable' => false,
-			]));
-		}
-	}
-
-	/**
-	 * @throws ApplicationExceptions\InvalidState
-	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -310,93 +242,72 @@ final class Properties implements Common\EventSubscriber
 	{
 		$channel = $property->getChannel();
 
-		$findChannelProperty = new Queries\Entities\FindChannelProperties();
-		$findChannelProperty->forChannel($channel);
-		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
+		if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::HDMI->value) {
+			$hdmiFormat = $property->getFormat();
 
-		$hdmiProperty = $this->channelsPropertiesRepository->findOneBy(
-			$findChannelProperty,
-			DevicesEntities\Channels\Properties\Dynamic::class,
-		);
-
-		$hdmiFormat = $hdmiProperty?->getFormat();
-
-		$hdmiFormat = $hdmiFormat instanceof MetadataFormats\CombinedEnum ? $hdmiFormat->toArray() : [];
-
-		$findChannelProperty = new Queries\Entities\FindChannelProperties();
-		$findChannelProperty->forChannel($channel);
-		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
-
-		$applicationProperty = $this->channelsPropertiesRepository->findOneBy(
-			$findChannelProperty,
-			DevicesEntities\Channels\Properties\Dynamic::class,
-		);
-
-		$applicationFormat = $applicationProperty?->getFormat();
-
-		$applicationFormat = $applicationFormat instanceof MetadataFormats\CombinedEnum
-			? $applicationFormat->toArray()
-			: [];
-
-		$findChannelProperty = new Queries\Entities\FindChannelProperties();
-		$findChannelProperty->forChannel($channel);
-		$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::INPUT_SOURCE);
-
-		$inputSourceProperty = $this->channelsPropertiesRepository->findOneBy(
-			$findChannelProperty,
-			DevicesEntities\Channels\Properties\Dynamic::class,
-		);
-
-		if ($inputSourceProperty === null) {
-			$this->channelsPropertiesManager->create(
-				Utils\ArrayHash::from(
-					[
-						'entity' => DevicesEntities\Channels\Properties\Dynamic::class,
-						'channel' => $channel,
-						'identifier' => Types\ChannelPropertyIdentifier::INPUT_SOURCE->value,
-						'name' => DevicesUtilities\Name::createName(
-							Types\ChannelPropertyIdentifier::INPUT_SOURCE->value,
-						),
-						'dataType' => MetadataTypes\DataType::ENUM,
-						'settable' => true,
-						'queryable' => false,
-						'format' => array_merge(
-							[
-								[
-									'TV',
-									500,
-									500,
-								],
-							],
-							$hdmiFormat,
-							$applicationFormat,
-						),
-					],
-				),
-			);
+			$hdmiFormat = $hdmiFormat instanceof MetadataFormats\CombinedEnum
+				? $hdmiFormat->toArray()
+				: [];
 		} else {
-			$this->channelsPropertiesManager->update(
-				$inputSourceProperty,
-				Utils\ArrayHash::from(
-					[
-						'dataType' => MetadataTypes\DataType::ENUM,
-						'settable' => true,
-						'queryable' => false,
-						'format' => array_merge(
-							[
-								[
-									'TV',
-									500,
-									500,
-								],
-							],
-							$hdmiFormat,
-							$applicationFormat,
-						),
-					],
-				),
+			$findChannelProperty = new Queries\Entities\FindChannelProperties();
+			$findChannelProperty->forChannel($channel);
+			$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
+
+			$hdmiProperty = $this->channelsPropertiesRepository->findOneBy(
+				$findChannelProperty,
+				DevicesEntities\Channels\Properties\Dynamic::class,
 			);
+
+			$hdmiFormat = $hdmiProperty?->getFormat();
+
+			$hdmiFormat = $hdmiFormat instanceof MetadataFormats\CombinedEnum
+				? $hdmiFormat->toArray()
+				: [];
 		}
+
+		if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::APPLICATION->value) {
+			$applicationFormat = $property->getFormat();
+
+			$applicationFormat = $applicationFormat instanceof MetadataFormats\CombinedEnum
+				? $applicationFormat->toArray()
+				: [];
+		} else {
+			$findChannelProperty = new Queries\Entities\FindChannelProperties();
+			$findChannelProperty->forChannel($channel);
+			$findChannelProperty->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
+
+			$applicationProperty = $this->channelsPropertiesRepository->findOneBy(
+				$findChannelProperty,
+				DevicesEntities\Channels\Properties\Dynamic::class,
+			);
+
+			$applicationFormat = $applicationProperty?->getFormat();
+
+			$applicationFormat = $applicationFormat instanceof MetadataFormats\CombinedEnum
+				? $applicationFormat->toArray()
+				: [];
+		}
+
+		$this->channelProperty->create(
+			DevicesEntities\Channels\Properties\Dynamic::class,
+			$channel->getId(),
+			null,
+			MetadataTypes\DataType::ENUM,
+			Types\ChannelPropertyIdentifier::INPUT_SOURCE,
+			DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::INPUT_SOURCE->value),
+			array_merge(
+				[
+					[
+						'TV',
+						500,
+						500,
+					],
+				],
+				$hdmiFormat,
+				$applicationFormat,
+			),
+			true,
+		);
 	}
 
 }

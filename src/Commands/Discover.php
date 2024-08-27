@@ -36,9 +36,7 @@ use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Types as DevicesTypes;
 use FastyBird\Module\Devices\Utilities as DevicesUtilities;
-use IPub\DoctrineCrud\Exceptions as DoctrineCrudExceptions;
 use Nette\Localization;
-use Nette\Utils;
 use Ramsey\Uuid;
 use Symfony\Component\Console;
 use Symfony\Component\Console\Input;
@@ -78,10 +76,9 @@ class Discover extends Console\Command\Command
 	public function __construct(
 		private readonly Api\TelevisionApiFactory $televisionApiFactory,
 		private readonly Helpers\Device $deviceHelper,
+		private readonly Helpers\DeviceProperty $deviceProperty,
 		private readonly Viera\Logger $logger,
 		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
-		private readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
-		private readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
 		private readonly DevicesModels\Configuration\Connectors\Repository $connectorsConfigurationRepository,
 		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
 		private readonly DateTimeFactory\Factory $dateTimeFactory,
@@ -115,13 +112,12 @@ class Discover extends Console\Command\Command
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
 	 * @throws Console\Exception\ExceptionInterface
 	 * @throws Console\Exception\InvalidArgumentException
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -336,11 +332,10 @@ class Discover extends Console\Command\Command
 
 	/**
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
 	 * @throws DevicesExceptions\InvalidState
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -432,10 +427,9 @@ class Discover extends Console\Command\Command
 	 * @param array<Documents\Devices\Device> $encryptedDevices
 	 *
 	 * @throws ApplicationExceptions\InvalidState
+	 * @throws ApplicationExceptions\Runtime
+	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
-	 * @throws DoctrineCrudExceptions\EntityCreation
-	 * @throws DoctrineCrudExceptions\InvalidArgument
-	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidArgument
 	 * @throws MetadataExceptions\InvalidState
@@ -595,51 +589,23 @@ class Discover extends Console\Command\Command
 
 				$authorization = $this->askPinCode($io, $connector, $televisionApi);
 
-				$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
-				$findDevicePropertyQuery->byDeviceId($device->getId());
-				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::APP_ID);
+				$this->deviceProperty->create(
+					DevicesEntities\Devices\Properties\Variable::class,
+					$device->getId(),
+					$authorization->getAppId(),
+					MetadataTypes\DataType::STRING,
+					Types\DevicePropertyIdentifier::APP_ID,
+					DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
+				);
 
-				$appIdProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
-
-				if ($appIdProperty === null) {
-					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
-						'entity' => DevicesEntities\Devices\Properties\Variable::class,
-						'device' => $device,
-						'identifier' => Types\DevicePropertyIdentifier::APP_ID->value,
-						'name' => DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
-						'dataType' => MetadataTypes\DataType::STRING,
-						'value' => $authorization->getAppId(),
-						'format' => null,
-					]));
-				} else {
-					$this->devicesPropertiesManager->update($appIdProperty, Utils\ArrayHash::from([
-						'value' => $authorization->getAppId(),
-					]));
-				}
-
-				$findDevicePropertyQuery = new Queries\Entities\FindDeviceProperties();
-				$findDevicePropertyQuery->byDeviceId($device->getId());
-				$findDevicePropertyQuery->byIdentifier(Types\DevicePropertyIdentifier::ENCRYPTION_KEY);
-
-				$encryptionKeyProperty = $this->devicesPropertiesRepository->findOneBy($findDevicePropertyQuery);
-
-				if ($encryptionKeyProperty === null) {
-					$this->devicesPropertiesManager->create(Utils\ArrayHash::from([
-						'entity' => DevicesEntities\Devices\Properties\Variable::class,
-						'device' => $device,
-						'identifier' => Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
-						'name' => DevicesUtilities\Name::createName(
-							Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value,
-						),
-						'dataType' => MetadataTypes\DataType::STRING,
-						'value' => $authorization->getEncryptionKey(),
-						'format' => null,
-					]));
-				} else {
-					$this->devicesPropertiesManager->update($encryptionKeyProperty, Utils\ArrayHash::from([
-						'value' => $authorization->getEncryptionKey(),
-					]));
-				}
+				$this->deviceProperty->create(
+					DevicesEntities\Devices\Properties\Variable::class,
+					$device->getId(),
+					$authorization->getEncryptionKey(),
+					MetadataTypes\DataType::STRING,
+					Types\DevicePropertyIdentifier::ENCRYPTION_KEY,
+					DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTION_KEY->value),
+				);
 
 				$io->success(
 					(string) $this->translator->translate(

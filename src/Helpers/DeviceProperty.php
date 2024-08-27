@@ -7,13 +7,13 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Queue
+ * @subpackage     Helpers
  * @since          1.0.0
  *
- * @date           28.06.23
+ * @date           27.08.24
  */
 
-namespace FastyBird\Connector\Viera\Queue\Consumers;
+namespace FastyBird\Connector\Viera\Helpers;
 
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
@@ -30,22 +30,18 @@ use Nette\Utils;
 use Ramsey\Uuid;
 use function array_merge;
 
-/**
- * Device property consumer trait
- *
- * @package        FastyBird:VieraConnector!
- * @subpackage     Queue
- *
- * @author         Adam Kadlec <adam.kadlec@fastybird.com>
- *
- * @property-read DevicesModels\Entities\Devices\DevicesRepository $devicesRepository
- * @property-read DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository
- * @property-read DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager
- * @property-read ApplicationHelpers\Database $databaseHelper
- * @property-read Viera\Logger $logger
- */
-trait DeviceProperty
+final readonly class DeviceProperty
 {
+
+	public function __construct(
+		private DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
+		private DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
+		private DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
+		private ApplicationHelpers\Database $databaseHelper,
+		private Viera\Logger $logger,
+	)
+	{
+	}
 
 	/**
 	 * @param class-string<DevicesEntities\Devices\Properties\Variable|DevicesEntities\Devices\Properties\Dynamic> $type
@@ -53,10 +49,10 @@ trait DeviceProperty
 	 *
 	 * @throws ApplicationExceptions\InvalidState
 	 * @throws ApplicationExceptions\Runtime
-	 * @throws Exceptions\InvalidArgument
 	 * @throws DBAL\Exception
+	 * @throws Exceptions\InvalidArgument
 	 */
-	private function setDeviceProperty(
+	public function create(
 		string $type,
 		Uuid\UuidInterface $deviceId,
 		string|bool|int|null $value,
@@ -97,7 +93,7 @@ trait DeviceProperty
 				'Stored device property was not of valid type',
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
-					'type' => 'message-consumer',
+					'type' => 'device-property-helper',
 					'device' => [
 						'id' => $deviceId->toString(),
 					],
@@ -122,7 +118,7 @@ trait DeviceProperty
 					'Device was not found, property could not be configured',
 					[
 						'source' => MetadataTypes\Sources\Connector::VIERA->value,
-						'type' => 'message-consumer',
+						'type' => 'device-property-helper',
 						'device' => [
 							'id' => $deviceId->toString(),
 						],
@@ -162,7 +158,7 @@ trait DeviceProperty
 				'Device property was created',
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
-					'type' => 'message-consumer',
+					'type' => 'device-property-helper',
 					'device' => [
 						'id' => $deviceId->toString(),
 					],
@@ -198,7 +194,7 @@ trait DeviceProperty
 				'Device property was updated',
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
-					'type' => 'message-consumer',
+					'type' => 'device-property-helper',
 					'device' => [
 						'id' => $deviceId->toString(),
 					],

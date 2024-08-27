@@ -32,6 +32,8 @@ enum ChannelPropertyIdentifier: string
 
 	case MUTE = 'mute';
 
+	case REMOTE = 'remote';
+
 	case INPUT_SOURCE = 'input_source';
 
 	case APPLICATION = 'application';
@@ -89,5 +91,7 @@ enum ChannelPropertyIdentifier: string
 	case KEY_OK = 'key_ok';
 
 	case KEY_BACK = 'key_back';
+
+	case KEY_MENU = 'key_menu';
 
 }

@@ -46,22 +46,18 @@ use function assert;
 final class StoreDevice implements Queue\Consumer
 {
 
-	use DeviceProperty;
-	use ChannelProperty;
 	use Nette\SmartObject;
 
 	public function __construct(
-		protected readonly Viera\Logger $logger,
-		protected readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
-		protected readonly DevicesModels\Entities\Devices\Properties\PropertiesRepository $devicesPropertiesRepository,
-		protected readonly DevicesModels\Entities\Devices\Properties\PropertiesManager $devicesPropertiesManager,
-		protected readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
-		protected readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
-		protected readonly DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
-		protected readonly ApplicationHelpers\Database $databaseHelper,
+		private readonly Viera\Logger $logger,
+		private readonly Helpers\DeviceProperty $deviceProperty,
+		private readonly Helpers\ChannelProperty $channelProperty,
 		private readonly DevicesModels\Entities\Connectors\ConnectorsRepository $connectorsRepository,
+		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
 		private readonly DevicesModels\Entities\Devices\DevicesManager $devicesManager,
+		private readonly DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
 		private readonly DevicesModels\Entities\Channels\ChannelsManager $channelsManager,
+		private readonly ApplicationHelpers\Database $databaseHelper,
 	)
 	{
 	}
@@ -126,7 +122,7 @@ final class StoreDevice implements Queue\Consumer
 			);
 		}
 
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getIpAddress(),
@@ -134,7 +130,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::IP_ADDRESS,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::IP_ADDRESS->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getPort(),
@@ -142,7 +138,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::PORT,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::PORT->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getModel(),
@@ -150,7 +146,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::MODEL,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MODEL->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getManufacturer(),
@@ -158,7 +154,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::MANUFACTURER,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MANUFACTURER->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getSerialNumber(),
@@ -166,7 +162,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::SERIAL_NUMBER,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::SERIAL_NUMBER->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getMacAddress(),
@@ -174,7 +170,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::MAC_ADDRESS,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::MAC_ADDRESS->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->isEncrypted(),
@@ -182,7 +178,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::ENCRYPTED,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::ENCRYPTED->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getAppId(),
@@ -190,7 +186,7 @@ final class StoreDevice implements Queue\Consumer
 			Types\DevicePropertyIdentifier::APP_ID,
 			DevicesUtilities\Name::createName(Types\DevicePropertyIdentifier::APP_ID->value),
 		);
-		$this->setDeviceProperty(
+		$this->deviceProperty->create(
 			DevicesEntities\Devices\Properties\Variable::class,
 			$device->getId(),
 			$message->getEncryptionKey(),
@@ -232,7 +228,7 @@ final class StoreDevice implements Queue\Consumer
 				);
 			}
 
-			$this->setChannelProperty(
+			$this->channelProperty->create(
 				DevicesEntities\Channels\Properties\Dynamic::class,
 				$channel->getId(),
 				null,
@@ -244,7 +240,7 @@ final class StoreDevice implements Queue\Consumer
 				true,
 			);
 
-			$this->setChannelProperty(
+			$this->channelProperty->create(
 				DevicesEntities\Channels\Properties\Dynamic::class,
 				$channel->getId(),
 				null,
@@ -259,7 +255,7 @@ final class StoreDevice implements Queue\Consumer
 				true,
 			);
 
-			$this->setChannelProperty(
+			$this->channelProperty->create(
 				DevicesEntities\Channels\Properties\Dynamic::class,
 				$channel->getId(),
 				null,
@@ -271,7 +267,18 @@ final class StoreDevice implements Queue\Consumer
 				true,
 			);
 
-			$this->setChannelProperty(
+			$this->channelProperty->create(
+				DevicesEntities\Channels\Properties\Dynamic::class,
+				$channel->getId(),
+				null,
+				MetadataTypes\DataType::STRING,
+				Types\ChannelPropertyIdentifier::REMOTE,
+				DevicesUtilities\Name::createName(Types\ChannelPropertyIdentifier::REMOTE->value),
+				null,
+				true,
+			);
+
+			$this->channelProperty->create(
 				DevicesEntities\Channels\Properties\Dynamic::class,
 				$channel->getId(),
 				null,
@@ -289,7 +296,7 @@ final class StoreDevice implements Queue\Consumer
 				true,
 			);
 
-			$this->setChannelProperty(
+			$this->channelProperty->create(
 				DevicesEntities\Channels\Properties\Dynamic::class,
 				$channel->getId(),
 				null,
@@ -307,7 +314,7 @@ final class StoreDevice implements Queue\Consumer
 				true,
 			);
 
-			$this->setChannelProperty(
+			$this->channelProperty->create(
 				DevicesEntities\Channels\Properties\Dynamic::class,
 				$channel->getId(),
 				null,

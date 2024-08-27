@@ -52,6 +52,7 @@ final class VieraExtensionTest extends Tests\Cases\Unit\BaseTestCase
 
 		self::assertNotNull($container->getByType(Subscribers\Properties::class, false));
 		self::assertNotNull($container->getByType(Subscribers\Controls::class, false));
+		self::assertNotNull($container->getByType(Subscribers\Device::class, false));
 
 		self::assertNotNull($container->getByType(Schemas\Connectors\Connector::class, false));
 		self::assertNotNull($container->getByType(Schemas\Devices\Device::class, false));
@@ -60,6 +61,9 @@ final class VieraExtensionTest extends Tests\Cases\Unit\BaseTestCase
 		self::assertNotNull($container->getByType(Hydrators\Devices\Device::class, false));
 
 		self::assertNotNull($container->getByType(Helpers\MessageBuilder::class, false));
+		self::assertNotNull($container->getByType(Helpers\Device::class, false));
+		self::assertNotNull($container->getByType(Helpers\DeviceProperty::class, false));
+		self::assertNotNull($container->getByType(Helpers\ChannelProperty::class, false));
 
 		self::assertNotNull($container->getByType(Commands\Execute::class, false));
 		self::assertNotNull($container->getByType(Commands\Discover::class, false));

@@ -113,17 +113,13 @@ final class Discovery
 		}
 
 		$this->sender->on('message', async(function (string $data): void {
-			if (
-				preg_match(self::MATCH_DEVICE_LOCATION, $data, $matches) === 1
-				&& array_key_exists('location', $matches)
-			) {
+			if (preg_match(self::MATCH_DEVICE_LOCATION, $data, $matches) === 1) {
 				$urlParts = parse_url($matches['location']);
 
 				if (
 					is_array($urlParts)
 					&& array_key_exists('host', $urlParts)
 					&& preg_match(self::MATCH_DEVICE_ID, $data, $matches) === 1
-					&& array_key_exists('usn', $matches)
 				) {
 					$this->handleDiscoveredDevice(
 						$matches['usn'],

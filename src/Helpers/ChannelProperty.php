@@ -7,13 +7,13 @@
  * @copyright      https://www.fastybird.com
  * @author         Adam Kadlec <adam.kadlec@fastybird.com>
  * @package        FastyBird:VieraConnector!
- * @subpackage     Queue
+ * @subpackage     Helpers
  * @since          1.0.0
  *
- * @date           28.06.23
+ * @date           27.08.24
  */
 
-namespace FastyBird\Connector\Viera\Queue\Consumers;
+namespace FastyBird\Connector\Viera\Helpers;
 
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
@@ -29,22 +29,18 @@ use Nette\Utils;
 use Ramsey\Uuid;
 use function array_merge;
 
-/**
- * Channel property consumer trait
- *
- * @package        FastyBird:VieraConnector!
- * @subpackage     Queue
- *
- * @author         Adam Kadlec <adam.kadlec@fastybird.com>
- *
- * @property-read DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository
- * @property-read DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository
- * @property-read DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager
- * @property-read ApplicationHelpers\Database $databaseHelper
- * @property-read Viera\Logger $logger
- */
-trait ChannelProperty
+final readonly class ChannelProperty
 {
+
+	public function __construct(
+		private DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
+		private DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
+		private DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
+		private ApplicationHelpers\Database $databaseHelper,
+		private Viera\Logger $logger,
+	)
+	{
+	}
 
 	/**
 	 * @param class-string<DevicesEntities\Channels\Properties\Variable|DevicesEntities\Channels\Properties\Dynamic> $type
@@ -55,7 +51,7 @@ trait ChannelProperty
 	 * @throws DBAL\Exception
 	 * @throws Exceptions\InvalidArgument
 	 */
-	private function setChannelProperty(
+	public function create(
 		string $type,
 		Uuid\UuidInterface $channelId,
 		string|bool|int|null $value,
@@ -96,7 +92,7 @@ trait ChannelProperty
 				'Stored channel property was not of valid type',
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
-					'type' => 'message-consumer',
+					'type' => 'channel-property-helper',
 					'channel' => [
 						'id' => $channelId->toString(),
 					],
@@ -118,7 +114,7 @@ trait ChannelProperty
 					'Channel was not found, property could not be configured',
 					[
 						'source' => MetadataTypes\Sources\Connector::VIERA->value,
-						'type' => 'message-consumer',
+						'type' => 'channel-property-helper',
 						'channel' => [
 							'id' => $channelId->toString(),
 						],
@@ -158,7 +154,7 @@ trait ChannelProperty
 				'Channel property was created',
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
-					'type' => 'message-consumer',
+					'type' => 'channel-property-helper',
 					'channel' => [
 						'id' => $channelId->toString(),
 					],
@@ -194,7 +190,7 @@ trait ChannelProperty
 				'Channel property was updated',
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
-					'type' => 'message-consumer',
+					'type' => 'channel-property-helper',
 					'channel' => [
 						'id' => $channelId->toString(),
 					],

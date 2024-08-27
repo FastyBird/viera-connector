@@ -44,6 +44,7 @@ use function array_key_exists;
 use function array_merge;
 use function array_pop;
 use function array_values;
+use function assert;
 use function base64_decode;
 use function boolval;
 use function chr;
@@ -1436,6 +1437,7 @@ final class TelevisionApi
 			strval($this->eventsServer->getAddress()),
 			$matches,
 		);
+		assert(array_key_exists('port', $matches));
 
 		try {
 			$client = $this->httpClientFactory->create(false);
@@ -1653,10 +1655,6 @@ final class TelevisionApi
 			$this->session !== null
 			&& preg_match('/<X_EncResult>(?<encrypted>.*?)<\/X_EncResult>/', $body, $matches) === 1
 		) {
-			if (!array_key_exists('encrypted', $matches)) {
-				throw new Exceptions\TelevisionApiCall('Could not parse received response');
-			}
-
 			try {
 				$payload = Crypto::decryptPayload(
 					$matches['encrypted'],
@@ -1748,10 +1746,6 @@ final class TelevisionApi
 			$this->session !== null
 			&& preg_match('/<X_EncResult>(?<encrypted>.*?)<\/X_EncResult>/', $body, $matches) === 1
 		) {
-			if (!array_key_exists('encrypted', $matches)) {
-				throw new Exceptions\TelevisionApiCall('Could not parse received response');
-			}
-
 			try {
 				$payload = Crypto::decryptPayload(
 					$matches['encrypted'],
@@ -1821,10 +1815,6 @@ final class TelevisionApi
 			$this->session !== null
 			&& preg_match('/<X_EncResult>(?<encrypted>.*?)<\/X_EncResult>/', $body, $matches) === 1
 		) {
-			if (!array_key_exists('encrypted', $matches)) {
-				throw new Exceptions\TelevisionApiCall('Could not parse received response', $request, $response);
-			}
-
 			try {
 				$payload = Crypto::decryptPayload(
 					$matches['encrypted'],
@@ -1842,20 +1832,14 @@ final class TelevisionApi
 				);
 			}
 
-			if (
-				preg_match('/<CurrentVolume>(?<volume>.*?)<\/CurrentVolume>/', $payload, $matches) !== 1
-				|| !array_key_exists('volume', $matches)
-			) {
+			if (preg_match('/<CurrentVolume>(?<volume>.*?)<\/CurrentVolume>/', $payload, $matches) !== 1) {
 				throw new Exceptions\TelevisionApiCall('Received response is not valid', $request, $response);
 			}
 
 			return intval($matches['volume']);
 		}
 
-		if (
-			preg_match('/<CurrentVolume>(?<volume>.*?)<\/CurrentVolume>/', $body, $matches) !== 1
-			|| !array_key_exists('volume', $matches)
-		) {
+		if (preg_match('/<CurrentVolume>(?<volume>.*?)<\/CurrentVolume>/', $body, $matches) !== 1) {
 			throw new Exceptions\TelevisionApiCall('Received response is not valid', $request, $response);
 		}
 
@@ -1876,10 +1860,6 @@ final class TelevisionApi
 			$this->session !== null
 			&& preg_match('/<X_EncResult>(?<encrypted>.*?)<\/X_EncResult>/', $body, $matches) === 1
 		) {
-			if (!array_key_exists('encrypted', $matches)) {
-				throw new Exceptions\TelevisionApiCall('Could not parse received response', $request, $response);
-			}
-
 			try {
 				$payload = Crypto::decryptPayload(
 					$matches['encrypted'],
@@ -1897,20 +1877,14 @@ final class TelevisionApi
 				);
 			}
 
-			if (
-				preg_match('/<CurrentMute>(?<mute>.*?)<\/CurrentMute>/', $payload, $matches) !== 1
-				|| !array_key_exists('mute', $matches)
-			) {
+			if (preg_match('/<CurrentMute>(?<mute>.*?)<\/CurrentMute>/', $payload, $matches) !== 1) {
 				throw new Exceptions\TelevisionApiCall('Received response is not valid', $request, $response);
 			}
 
 			return boolval($matches['mute']);
 		}
 
-		if (
-			preg_match('/<CurrentMute>(?<mute>.*?)<\/CurrentMute>/', $body, $matches) !== 1
-			|| !array_key_exists('mute', $matches)
-		) {
+		if (preg_match('/<CurrentMute>(?<mute>.*?)<\/CurrentMute>/', $body, $matches) !== 1) {
 			throw new Exceptions\TelevisionApiCall('Received response is not valid', $request, $response);
 		}
 

@@ -217,6 +217,9 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		$builder->addDefinition($this->prefix('subscribers.controls'), new DI\Definitions\ServiceDefinition())
 			->setType(Subscribers\Controls::class);
 
+		$builder->addDefinition($this->prefix('subscribers.device'), new DI\Definitions\ServiceDefinition())
+			->setType(Subscribers\Device::class);
+
 		/**
 		 * JSON-API SCHEMAS
 		 */
@@ -252,6 +255,18 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 
 		$builder->addDefinition($this->prefix('helpers.device'), new DI\Definitions\ServiceDefinition())
 			->setType(Helpers\Device::class);
+
+		$builder->addDefinition($this->prefix('helpers.deviceProperty'), new DI\Definitions\ServiceDefinition())
+			->setType(Helpers\DeviceProperty::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
+
+		$builder->addDefinition($this->prefix('helpers.channelProperty'), new DI\Definitions\ServiceDefinition())
+			->setType(Helpers\ChannelProperty::class)
+			->setArguments([
+				'logger' => $logger,
+			]);
 
 		/**
 		 * COMMANDS
