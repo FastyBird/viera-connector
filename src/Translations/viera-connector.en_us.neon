@@ -144,6 +144,7 @@ cmd:
                 hdmi: "Would you like to configure HDMI inputs?"
                 nextHdmi: "Would you like to configure another HDMI inputs?"
                 macAddress: "Would you like to configure television MAC address?"
+            pairDevice: "Would you like to pair this televisions?"
 
         data:
             id: "ID"
@@ -202,6 +203,7 @@ cmd:
             foundDevices: "Found %d new televisions"
             noDevicesFound: "No televisions were found"
             missingIpAddress: "Something went wrong television: \"%device%\" has not defined its ip address."
+            foundEncryptedDevices: "Some televisions require to by paired to get encryption keys."
             pairing:
                 started: "Pairing television: \"%device%\"."
                 finished: "Television: \"%device%\" was successfully paired."

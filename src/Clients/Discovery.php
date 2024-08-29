@@ -23,10 +23,12 @@ use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queue;
 use FastyBird\Connector\Viera\Services;
+use FastyBird\Connector\Viera\ValueObjects;
 use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Events as DevicesEvents;
 use Nette;
+use Orisai\ObjectMapper;
 use Psr\EventDispatcher as PsrEventDispatcher;
 use React\Datagram;
 use React\EventLoop;
@@ -39,6 +41,7 @@ use function parse_url;
 use function preg_match;
 use function React\Async\async;
 use function React\Async\await;
+use function serialize;
 use function sprintf;
 use function strval;
 use function trim;
@@ -62,9 +65,17 @@ final class Discovery
 
 	private const SEARCH_TIMEOUT = 5;
 
+	private const PROCESS_RESULTS_TIMER = 0.1;
+
 	private const MATCH_DEVICE_LOCATION = '/LOCATION:\s(?<location>[\da-zA-Z:\/.]+)/';
 
 	private const MATCH_DEVICE_ID = '/USN:\suuid:(?<usn>[\da-zA-Z-]+)::urn/';
+
+	/** @var array<string, ValueObjects\LocalDevice> */
+	private array $searchResult = [];
+
+	/** @var array<string, ValueObjects\LocalDevice>  */
+	private array $processedItems = [];
 
 	private EventLoop\TimerInterface|null $handlerTimer = null;
 
@@ -78,6 +89,7 @@ final class Discovery
 		private readonly Viera\Logger $logger,
 		private readonly Services\MulticastFactory $multicastFactory,
 		private readonly EventLoop\LoopInterface $eventLoop,
+		private readonly ObjectMapper\Processing\Processor $objectMapper,
 		private readonly PsrEventDispatcher\EventDispatcherInterface|null $dispatcher = null,
 	)
 	{
@@ -112,7 +124,7 @@ final class Discovery
 			return;
 		}
 
-		$this->sender->on('message', async(function (string $data): void {
+		$this->sender->on('message', function (string $data): void {
 			if (preg_match(self::MATCH_DEVICE_LOCATION, $data, $matches) === 1) {
 				$urlParts = parse_url($matches['location']);
 
@@ -121,17 +133,55 @@ final class Discovery
 					&& array_key_exists('host', $urlParts)
 					&& preg_match(self::MATCH_DEVICE_ID, $data, $matches) === 1
 				) {
-					$this->handleDiscoveredDevice(
-						$matches['usn'],
-						$urlParts['host'],
-						array_key_exists(
-							'port',
-							$urlParts,
-						) ? $urlParts['port'] : Entities\Devices\Device::DEFAULT_PORT,
-					);
+					try {
+						$searchResult = $this->objectMapper->process(
+							[
+								'id' => $matches['usn'],
+								'host' => $urlParts['host'],
+								'port' => array_key_exists(
+									'port',
+									$urlParts,
+								) ? $urlParts['port'] : Entities\Devices\Device::DEFAULT_PORT,
+							],
+							ValueObjects\LocalDevice::class,
+						);
+
+						if (!array_key_exists(serialize($searchResult), $this->searchResult)) {
+							$this->searchResult[serialize($searchResult)] = $searchResult;
+						}
+					} catch (Throwable $ex) {
+						$this->logger->error(
+							'Received data could not be transformed to message',
+							[
+								'source' => MetadataTypes\Sources\Connector::VIERA->value,
+								'type' => 'discovery-client',
+								'exception' => ApplicationHelpers\Logger::buildException($ex),
+							],
+						);
+					}
 				}
 			}
-		}));
+		});
+
+		// Processing handler
+		$this->eventLoop->addPeriodicTimer(
+			self::PROCESS_RESULTS_TIMER,
+			async(function (): void {
+				foreach ($this->searchResult as $item) {
+					if (array_key_exists(serialize($item), $this->processedItems)) {
+						continue;
+					}
+
+					$this->processedItems[serialize($item)] = $item;
+
+					$this->handleDiscoveredDevice(
+						$item->getId(),
+						$item->getHost(),
+						$item->getPort(),
+					);
+				}
+			}),
+		);
 
 		// Searching timeout
 		$this->handlerTimer = $this->eventLoop->addTimer(
