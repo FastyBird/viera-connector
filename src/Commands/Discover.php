@@ -15,6 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Commands;
 
+use DateTimeImmutable;
 use DateTimeInterface;
 use Doctrine\DBAL;
 use FastyBird\Connector\Viera;
@@ -131,6 +132,10 @@ class Discover extends Console\Command\Command
 		if ($symfonyApp === null) {
 			return Console\Command\Command::FAILURE;
 		}
+
+		$executedTime = $this->clock->getNow();
+		assert($executedTime instanceof DateTimeImmutable);
+		$this->executedTime = $executedTime->modify('-5 second');
 
 		$io = new Style\SymfonyStyle($input, $output);
 
@@ -303,8 +308,6 @@ class Discover extends Console\Command\Command
 		}
 
 		$io->info((string) $this->translator->translate('//viera-connector.cmd.discover.messages.starting'));
-
-		$this->executedTime = $this->clock->getNow();
 
 		$serviceCmd = $symfonyApp->find(DevicesCommands\Connector::NAME);
 
