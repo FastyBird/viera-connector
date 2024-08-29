@@ -81,7 +81,7 @@ abstract class Periodic implements Writer
 		protected readonly DevicesModels\Configuration\Channels\Repository $channelsConfigurationRepository,
 		private readonly DevicesModels\Configuration\Channels\Properties\Repository $channelsPropertiesConfigurationRepository,
 		private readonly DevicesModels\States\Async\ChannelPropertiesManager $channelPropertiesStatesManager,
-		private readonly DateTimeFactory\Factory $dateTimeFactory,
+		private readonly DateTimeFactory\Clock $clock,
 		private readonly EventLoop\LoopInterface $eventLoop,
 	)
 	{
@@ -196,7 +196,7 @@ abstract class Periodic implements Writer
 	 */
 	private function writeProperty(Documents\Devices\Device $device): bool
 	{
-		$now = $this->dateTimeFactory->getNow();
+		$now = $this->clock->getNow();
 
 		foreach ($this->properties[$device->getId()->toString()] as $property) {
 			$debounce = array_key_exists($property->getId()->toString(), $this->processedProperties)

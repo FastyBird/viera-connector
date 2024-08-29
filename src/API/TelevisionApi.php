@@ -138,7 +138,7 @@ final class TelevisionApi
 		private readonly EventLoop\LoopInterface $eventLoop,
 		private readonly Helpers\MessageBuilder $messageBuilder,
 		private readonly Viera\Logger $logger,
-		private readonly DateTimeFactory\Factory $dateTimeFactory,
+		private readonly DateTimeFactory\Clock $clock,
 	)
 	{
 		$this->isEncrypted = $this->appId !== null && $this->encryptionKey !== null;
@@ -161,7 +161,7 @@ final class TelevisionApi
 		}
 
 		$this->isConnected = true;
-		$this->connectedAt = $this->dateTimeFactory->getNow();
+		$this->connectedAt = $this->clock->getNow();
 	}
 
 	/**

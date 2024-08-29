@@ -99,7 +99,7 @@ class Install extends Console\Command\Command
 		private readonly DevicesModels\Entities\Channels\ChannelsManager $channelsManager,
 		private readonly DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private readonly ApplicationHelpers\Database $databaseHelper,
-		private readonly DateTimeFactory\Factory $dateTimeFactory,
+		private readonly DateTimeFactory\Clock $clock,
 		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)
@@ -537,7 +537,7 @@ class Install extends Console\Command\Command
 	 */
 	private function createDevice(Style\SymfonyStyle $io, Entities\Connectors\Connector $connector): void
 	{
-		$tempIdentifier = 'new-device-' . $this->dateTimeFactory->getNow()->format(DateTimeInterface::ATOM);
+		$tempIdentifier = 'new-device-' . $this->clock->getNow()->format(DateTimeInterface::ATOM);
 
 		$ipAddress = $this->askDeviceIpAddress($io);
 
@@ -1712,7 +1712,7 @@ class Install extends Console\Command\Command
 			throw new Exceptions\InvalidState('Something went wrong, console output is not configured');
 		}
 
-		$executedTime = $this->dateTimeFactory->getNow();
+		$executedTime = $this->clock->getNow();
 
 		$symfonyApp = $this->getApplication();
 

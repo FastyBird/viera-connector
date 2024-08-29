@@ -51,7 +51,7 @@
     "guzzlehttp/guzzle": "^7.5",
     "ipub/doctrine-crud": "^5.0",
     "nette/di": "^3.0",
-    "orisai/nette-object-mapper": "^0.1",
+    "orisai/object-mapper": "^0.2",
     "psr/log": "^3.0",
     "ramsey/uuid": "^4.5",
     "react/async": "^4.0",

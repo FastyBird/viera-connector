@@ -81,7 +81,7 @@ class Discover extends Console\Command\Command
 		private readonly DevicesModels\Entities\Devices\DevicesRepository $devicesRepository,
 		private readonly DevicesModels\Configuration\Connectors\Repository $connectorsConfigurationRepository,
 		private readonly DevicesModels\Configuration\Devices\Repository $devicesConfigurationRepository,
-		private readonly DateTimeFactory\Factory $dateTimeFactory,
+		private readonly DateTimeFactory\Clock $clock,
 		private readonly Localization\Translator $translator,
 		string|null $name = null,
 	)
@@ -304,7 +304,7 @@ class Discover extends Console\Command\Command
 
 		$io->info((string) $this->translator->translate('//viera-connector.cmd.discover.messages.starting'));
 
-		$this->executedTime = $this->dateTimeFactory->getNow();
+		$this->executedTime = $this->clock->getNow();
 
 		$serviceCmd = $symfonyApp->find(DevicesCommands\Connector::NAME);
 
