@@ -44,7 +44,6 @@
     "cweagans/composer-patches": "^1.7",
     "doctrine/orm": "2.15.*",
     "fastybird/application-library": "dev-main",
-    "fastybird/datetime-factory": "^0.6",
     "fastybird/devices-module": "dev-main",
     "fastybird/metadata-library": "dev-main",
     "fastybird/tools-library": "dev-main",
