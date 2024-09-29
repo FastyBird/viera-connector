@@ -42,7 +42,7 @@ class Device extends DevicesEntities\Devices\Device
 
 	public const DEFAULT_PORT = 55_000;
 
-	public const STATE_READING_DELAY = 5_000.0;
+	public const STATE_READING_DELAY = 300.0;
 
 	public function __construct(
 		string $identifier,

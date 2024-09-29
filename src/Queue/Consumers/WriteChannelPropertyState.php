@@ -33,12 +33,15 @@ use FastyBird\Module\Devices\Documents as DevicesDocuments;
 use FastyBird\Module\Devices\Exceptions as DevicesExceptions;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use FastyBird\Module\Devices\Queries as DevicesQueries;
+use FastyBird\Module\Devices\States as DevicesStates;
 use FastyBird\Module\Devices\Types as DevicesTypes;
 use Nette;
+use Nette\Utils;
 use RuntimeException;
 use Throwable;
 use TypeError;
 use ValueError;
+use function assert;
 use function boolval;
 use function intval;
 use function React\Async\async;
@@ -350,9 +353,9 @@ final class WriteChannelPropertyState implements Queue\Consumer
 
 					break;
 				case Types\ChannelPropertyIdentifier::INPUT_SOURCE->value:
-					if (intval($expectedValue) < 100) {
+					if (intval($expectedValue) < Viera\Constants::MAX_HDMI_CODE) {
 						$result = $client->sendKey('NRC_HDMI' . $expectedValue . '-ONOFF');
-					} elseif (intval($expectedValue) === 500) {
+					} elseif (intval($expectedValue) === Viera\Constants::TV_CODE) {
 						$result = $client->sendKey(Types\ActionKey::AD_CHANGE);
 					} else {
 						$result = $client->launchApplication(strval($expectedValue));
@@ -365,6 +368,43 @@ final class WriteChannelPropertyState implements Queue\Consumer
 					break;
 				case Types\ChannelPropertyIdentifier::HDMI->value:
 					$result = $client->sendKey('NRC_HDMI' . $expectedValue . '-ONOFF');
+
+					break;
+				case Types\ChannelPropertyIdentifier::REMOTE->value:
+					$key = Types\ActionKey::tryFrom(strval($expectedValue));
+
+					if ($key === null) {
+						await($this->channelPropertiesStatesManager->setPendingState(
+							$property,
+							false,
+							MetadataTypes\Sources\Connector::VIERA,
+						));
+
+						$this->logger->error(
+							'Provided property value is not valid',
+							[
+								'source' => MetadataTypes\Sources\Connector::VIERA->value,
+								'type' => 'write-channel-property-state-message-consumer',
+								'connector' => [
+									'id' => $connector->getId()->toString(),
+								],
+								'device' => [
+									'id' => $device->getId()->toString(),
+								],
+								'channel' => [
+									'id' => $channel->getId()->toString(),
+								],
+								'property' => [
+									'id' => $property->getId()->toString(),
+								],
+								'data' => $message->toArray(),
+							],
+						);
+
+						return true;
+					}
+
+					$result = $client->sendKey($key);
 
 					break;
 				default:
@@ -540,7 +580,7 @@ final class WriteChannelPropertyState implements Queue\Consumer
 		}
 
 		$result->then(
-			function () use ($message, $connector, $device, $channel, $property, $expectedValue): void {
+			async(function () use ($message, $connector, $device, $channel, $property, $expectedValue): void {
 				$this->logger->debug(
 					'Channel state was successfully sent to device',
 					[
@@ -567,20 +607,24 @@ final class WriteChannelPropertyState implements Queue\Consumer
 					case Types\ChannelPropertyIdentifier::VOLUME->value:
 					case Types\ChannelPropertyIdentifier::MUTE->value:
 					case Types\ChannelPropertyIdentifier::INPUT_SOURCE->value:
-					case Types\ChannelPropertyIdentifier::APPLICATION->value:
 					case Types\ChannelPropertyIdentifier::HDMI->value:
-						$this->queue->append(
-							$this->messageBuilder->create(
-								Queue\Messages\StoreChannelPropertyState::class,
-								[
-									'connector' => $connector->getId(),
-									'device' => $device->getId(),
-									'channel' => Types\ChannelType::TELEVISION,
-									'property' => $property->getId(),
-									'value' => $expectedValue,
-								],
-							),
-						);
+					case Types\ChannelPropertyIdentifier::APPLICATION->value:
+						await($this->channelPropertiesStatesManager->set(
+							$property,
+							Utils\ArrayHash::from([
+								DevicesStates\Property::ACTUAL_VALUE_FIELD => $expectedValue,
+								DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+							]),
+							MetadataTypes\Sources\Connector::VIERA,
+						));
+
+						break;
+					case Types\ChannelPropertyIdentifier::REMOTE->value:
+						await($this->channelPropertiesStatesManager->setPendingState(
+							$property,
+							false,
+							MetadataTypes\Sources\Connector::VIERA,
+						));
 
 						break;
 					default:
@@ -588,99 +632,130 @@ final class WriteChannelPropertyState implements Queue\Consumer
 							Types\ChannelPropertyIdentifier::tryFrom($property->getIdentifier()) !== null
 							&& $property->getDataType() === MetadataTypes\DataType::BUTTON
 						) {
-							$this->queue->append(
-								$this->messageBuilder->create(
-									Queue\Messages\StoreChannelPropertyState::class,
-									[
-										'connector' => $connector->getId(),
-										'device' => $device->getId(),
-										'channel' => Types\ChannelType::TELEVISION,
-										'property' => $property->getId(),
-										'value' => $expectedValue,
-									],
-								),
-							);
+							await($this->channelPropertiesStatesManager->setPendingState(
+								$property,
+								false,
+								MetadataTypes\Sources\Connector::VIERA,
+							));
 						}
 
 						break;
 				}
 
 				if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::INPUT_SOURCE->value) {
-					$this->queue->append(
-						$this->messageBuilder->create(
-							Queue\Messages\StoreChannelPropertyState::class,
-							[
-								'connector' => $connector->getId(),
-								'device' => $device->getId(),
-								'channel' => Types\ChannelType::TELEVISION,
-								'property' => Types\ChannelPropertyIdentifier::HDMI,
-								'value' => intval($expectedValue) < 100 ? $expectedValue : null,
-							],
-						),
-					);
+					$findChannelPropertyQuery = new Queries\Configuration\FindChannelProperties();
+					$findChannelPropertyQuery->forChannel($channel);
+					$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
 
-					$this->queue->append(
-						$this->messageBuilder->create(
-							Queue\Messages\StoreChannelPropertyState::class,
-							[
-								'connector' => $connector->getId(),
-								'device' => $device->getId(),
-								'channel' => Types\ChannelType::TELEVISION,
-								'property' => Types\ChannelPropertyIdentifier::APPLICATION,
-								'value' => intval($expectedValue) !== 500 ? $expectedValue : null,
-							],
-						),
+					$applicationProperty = $this->channelsPropertiesConfigurationRepository->findOneBy(
+						$findChannelPropertyQuery,
+						DevicesDocuments\Channels\Properties\Dynamic::class,
 					);
-				}
+					assert($applicationProperty instanceof DevicesDocuments\Channels\Properties\Dynamic);
 
-				if (
+					await($this->channelPropertiesStatesManager->set(
+						$applicationProperty,
+						Utils\ArrayHash::from([
+							DevicesStates\Property::ACTUAL_VALUE_FIELD =>
+								intval(
+									MetadataUtilities\Value::toString($expectedValue, true),
+								) > Viera\Constants::MIN_APPLICATION_CODE
+									? $expectedValue
+									: null,
+							DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+						]),
+						MetadataTypes\Sources\Connector::VIERA,
+					));
+
+					$findChannelPropertyQuery = new Queries\Configuration\FindChannelProperties();
+					$findChannelPropertyQuery->forChannel($channel);
+					$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
+
+					$hdmiProperty = $this->channelsPropertiesConfigurationRepository->findOneBy(
+						$findChannelPropertyQuery,
+						DevicesDocuments\Channels\Properties\Dynamic::class,
+					);
+					assert($hdmiProperty instanceof DevicesDocuments\Channels\Properties\Dynamic);
+
+					await($this->channelPropertiesStatesManager->set(
+						$hdmiProperty,
+						Utils\ArrayHash::from([
+							DevicesStates\Property::ACTUAL_VALUE_FIELD =>
+								intval(
+									MetadataUtilities\Value::toString($expectedValue, true),
+								) < Viera\Constants::MAX_HDMI_CODE
+									? $expectedValue
+									: null,
+							DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+						]),
+						MetadataTypes\Sources\Connector::VIERA,
+					));
+
+				} elseif (
 					$property->getIdentifier() === Types\ChannelPropertyIdentifier::APPLICATION->value
 					|| $property->getIdentifier() === Types\ChannelPropertyIdentifier::HDMI->value
 				) {
-					if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::HDMI->value) {
-						$this->queue->append(
-							$this->messageBuilder->create(
-								Queue\Messages\StoreChannelPropertyState::class,
-								[
-									'connector' => $connector->getId(),
-									'device' => $device->getId(),
-									'channel' => Types\ChannelType::TELEVISION,
-									'property' => Types\ChannelPropertyIdentifier::APPLICATION,
-									'value' => null,
-								],
-							),
-						);
-					}
+					$findChannelPropertyQuery = new Queries\Configuration\FindChannelProperties();
+					$findChannelPropertyQuery->forChannel($channel);
+					$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::INPUT_SOURCE);
+
+					$inputSourceProperty = $this->channelsPropertiesConfigurationRepository->findOneBy(
+						$findChannelPropertyQuery,
+						DevicesDocuments\Channels\Properties\Dynamic::class,
+					);
+					assert($inputSourceProperty instanceof DevicesDocuments\Channels\Properties\Dynamic);
+
+					await($this->channelPropertiesStatesManager->set(
+						$inputSourceProperty,
+						Utils\ArrayHash::from([
+							DevicesStates\Property::ACTUAL_VALUE_FIELD => $expectedValue,
+							DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+						]),
+						MetadataTypes\Sources\Connector::VIERA,
+					));
+
+					$findChannelPropertyQuery = new Queries\Configuration\FindChannelProperties();
+					$findChannelPropertyQuery->forChannel($channel);
+					$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::HDMI);
+
+					$hdmiProperty = $this->channelsPropertiesConfigurationRepository->findOneBy(
+						$findChannelPropertyQuery,
+						DevicesDocuments\Channels\Properties\Dynamic::class,
+					);
+					assert($hdmiProperty instanceof DevicesDocuments\Channels\Properties\Dynamic);
+
+					$findChannelPropertyQuery = new Queries\Configuration\FindChannelProperties();
+					$findChannelPropertyQuery->forChannel($channel);
+					$findChannelPropertyQuery->byIdentifier(Types\ChannelPropertyIdentifier::APPLICATION);
+
+					$applicationProperty = $this->channelsPropertiesConfigurationRepository->findOneBy(
+						$findChannelPropertyQuery,
+						DevicesDocuments\Channels\Properties\Dynamic::class,
+					);
+					assert($applicationProperty instanceof DevicesDocuments\Channels\Properties\Dynamic);
 
 					if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::APPLICATION->value) {
-						$this->queue->append(
-							$this->messageBuilder->create(
-								Queue\Messages\StoreChannelPropertyState::class,
-								[
-									'connector' => $connector->getId(),
-									'device' => $device->getId(),
-									'channel' => Types\ChannelType::TELEVISION,
-									'property' => Types\ChannelPropertyIdentifier::HDMI,
-									'value' => null,
-								],
-							),
-						);
-					}
+						await($this->channelPropertiesStatesManager->set(
+							$hdmiProperty,
+							Utils\ArrayHash::from([
+								DevicesStates\Property::ACTUAL_VALUE_FIELD => null,
+								DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+							]),
+							MetadataTypes\Sources\Connector::VIERA,
+						));
 
-					$this->queue->append(
-						$this->messageBuilder->create(
-							Queue\Messages\StoreChannelPropertyState::class,
-							[
-								'connector' => $connector->getId(),
-								'device' => $device->getId(),
-								'channel' => Types\ChannelType::TELEVISION,
-								'property' => Types\ChannelPropertyIdentifier::INPUT_SOURCE,
-								'value' => $expectedValue,
-							],
-						),
-					);
+					} elseif ($property->getIdentifier() === Types\ChannelPropertyIdentifier::HDMI->value) {
+						await($this->channelPropertiesStatesManager->set(
+							$applicationProperty,
+							Utils\ArrayHash::from([
+								DevicesStates\Property::ACTUAL_VALUE_FIELD => null,
+								DevicesStates\Property::EXPECTED_VALUE_FIELD => null,
+							]),
+							MetadataTypes\Sources\Connector::VIERA,
+						));
+					}
 				}
-			},
+			}),
 			async(function (Throwable $ex) use ($device, $property): void {
 				await($this->channelPropertiesStatesManager->setPendingState(
 					$property,

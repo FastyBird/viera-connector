@@ -97,9 +97,11 @@ class Execute extends Console\Command\Command
 
 		$io = new Style\SymfonyStyle($input, $output);
 
-		$io->title((string) $this->translator->translate('//viera-connector.cmd.execute.title'));
+		if ($input->getOption('quiet') === false) {
+			$io->title((string) $this->translator->translate('//viera-connector.cmd.execute.title'));
 
-		$io->note((string) $this->translator->translate('//viera-connector.cmd.execute.subtitle'));
+			$io->note((string) $this->translator->translate('//viera-connector.cmd.execute.subtitle'));
+		}
 
 		if ($input->getOption('no-interaction') === false) {
 			$question = new Console\Question\ConfirmationQuestion(

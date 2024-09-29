@@ -988,9 +988,9 @@ class Install extends Console\Command\Command
 				array_merge(
 					[
 						[
-							'TV',
-							500,
-							500,
+							Viera\Constants::TV_IDENTIFIER,
+							Viera\Constants::TV_CODE,
+							Viera\Constants::TV_CODE,
 						],
 					],
 					$hdmi !== [] ? $hdmi : [],

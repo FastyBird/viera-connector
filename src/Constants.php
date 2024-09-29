@@ -57,4 +57,12 @@ class Constants
 		Types\ActionKey::MENU->value => Types\ChannelPropertyIdentifier::KEY_MENU,
 	];
 
+	public const TV_IDENTIFIER = 'TV';
+
+	public const TV_CODE = 500;
+
+	public const MAX_HDMI_CODE = 100;
+
+	public const MIN_APPLICATION_CODE = 1_000;
+
 }
