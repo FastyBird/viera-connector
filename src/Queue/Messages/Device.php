@@ -15,7 +15,7 @@
 
 namespace FastyBird\Connector\Viera\Queue\Messages;
 
-use FastyBird\Library\Application\ObjectMapper as ApplicationObjectMapper;
+use FastyBird\Core\Application\ObjectMapper as ApplicationObjectMapper;
 use Ramsey\Uuid;
 
 /**

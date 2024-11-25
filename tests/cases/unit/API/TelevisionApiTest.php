@@ -7,7 +7,7 @@ use FastyBird\Connector\Viera\API;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Tests;
-use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
+use FastyBird\Core\Application\Exceptions as ApplicationExceptions;
 use Fig\Http\Message\RequestMethodInterface;
 use GuzzleHttp;
 use Nette\DI;

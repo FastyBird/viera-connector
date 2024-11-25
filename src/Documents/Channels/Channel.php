@@ -16,11 +16,11 @@
 namespace FastyBird\Connector\Viera\Documents\Channels;
 
 use FastyBird\Connector\Viera\Entities;
-use FastyBird\Library\Metadata\Documents\Mapping as DOC;
+use FastyBird\Core\Application\Documents as ApplicationDocuments;
 use FastyBird\Module\Devices\Documents as DevicesDocuments;
 
-#[DOC\Document(entity: Entities\Channels\Channel::class)]
-#[DOC\DiscriminatorEntry(name: Entities\Channels\Channel::TYPE)]
+#[ApplicationDocuments\Mapping\Document(entity: Entities\Channels\Channel::class)]
+#[ApplicationDocuments\Mapping\DiscriminatorEntry(name: Entities\Channels\Channel::TYPE)]
 class Channel extends DevicesDocuments\Channels\Channel
 {
 

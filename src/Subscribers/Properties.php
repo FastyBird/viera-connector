@@ -25,9 +25,8 @@ use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
-use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
-use FastyBird\Library\Metadata\Exceptions as MetadataExceptions;
-use FastyBird\Library\Metadata\Formats as MetadataFormats;
+use FastyBird\Core\Tools\Exceptions as ToolsExceptions;
+use FastyBird\Core\Tools\Formats as ToolsFormats;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Models as DevicesModels;
@@ -73,14 +72,14 @@ final class Properties implements Common\EventSubscriber
 	/**
 	 * @param Persistence\Event\LifecycleEventArgs<ORM\EntityManagerInterface> $eventArgs
 	 *
-	 * @throws ApplicationExceptions\InvalidState
-	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
 	 * @throws DoctrineCrudExceptions\EntityCreation
 	 * @throws DoctrineCrudExceptions\InvalidArgument
 	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
+	 * @throws ToolsExceptions\InvalidState
+	 * @throws ToolsExceptions\Runtime
 	 * @throws TypeError
 	 * @throws ValueError
 	 */
@@ -106,14 +105,13 @@ final class Properties implements Common\EventSubscriber
 	/**
 	 * @param Persistence\Event\LifecycleEventArgs<ORM\EntityManagerInterface> $eventArgs
 	 *
-	 * @throws ApplicationExceptions\InvalidState
-	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
 	 * @throws Exceptions\InvalidArgument
 	 * @throws Exceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
+	 * @throws ToolsExceptions\InvalidArgument
+	 * @throws ToolsExceptions\InvalidState
+	 * @throws ToolsExceptions\Runtime
 	 * @throws TypeError
 	 * @throws ValueError
 	 */
@@ -142,12 +140,12 @@ final class Properties implements Common\EventSubscriber
 	}
 
 	/**
-	 * @throws ApplicationExceptions\InvalidState
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
 	 * @throws DoctrineCrudExceptions\EntityCreation
 	 * @throws DoctrineCrudExceptions\InvalidArgument
 	 * @throws DoctrineCrudExceptions\InvalidState
 	 * @throws Exceptions\InvalidArgument
+	 * @throws ToolsExceptions\InvalidState
 	 */
 	private function configureDeviceState(Entities\Devices\Device $device): void
 	{
@@ -197,11 +195,11 @@ final class Properties implements Common\EventSubscriber
 	}
 
 	/**
-	 * @throws ApplicationExceptions\InvalidState
-	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
 	 * @throws Exceptions\InvalidArgument
+	 * @throws ToolsExceptions\InvalidState
+	 * @throws ToolsExceptions\Runtime
 	 * @throws TypeError
 	 * @throws ValueError
 	 */
@@ -228,13 +226,12 @@ final class Properties implements Common\EventSubscriber
 	}
 
 	/**
-	 * @throws ApplicationExceptions\InvalidState
-	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
 	 * @throws DBAL\Exception\UniqueConstraintViolationException
 	 * @throws Exceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidArgument
-	 * @throws MetadataExceptions\InvalidState
+	 * @throws ToolsExceptions\InvalidArgument
+	 * @throws ToolsExceptions\InvalidState
+	 * @throws ToolsExceptions\Runtime
 	 * @throws TypeError
 	 * @throws ValueError
 	 */
@@ -245,7 +242,7 @@ final class Properties implements Common\EventSubscriber
 		if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::HDMI->value) {
 			$hdmiFormat = $property->getFormat();
 
-			$hdmiFormat = $hdmiFormat instanceof MetadataFormats\CombinedEnum
+			$hdmiFormat = $hdmiFormat instanceof ToolsFormats\CombinedEnum
 				? $hdmiFormat->toArray()
 				: [];
 		} else {
@@ -260,7 +257,7 @@ final class Properties implements Common\EventSubscriber
 
 			$hdmiFormat = $hdmiProperty?->getFormat();
 
-			$hdmiFormat = $hdmiFormat instanceof MetadataFormats\CombinedEnum
+			$hdmiFormat = $hdmiFormat instanceof ToolsFormats\CombinedEnum
 				? $hdmiFormat->toArray()
 				: [];
 		}
@@ -268,7 +265,7 @@ final class Properties implements Common\EventSubscriber
 		if ($property->getIdentifier() === Types\ChannelPropertyIdentifier::APPLICATION->value) {
 			$applicationFormat = $property->getFormat();
 
-			$applicationFormat = $applicationFormat instanceof MetadataFormats\CombinedEnum
+			$applicationFormat = $applicationFormat instanceof ToolsFormats\CombinedEnum
 				? $applicationFormat->toArray()
 				: [];
 		} else {
@@ -283,7 +280,7 @@ final class Properties implements Common\EventSubscriber
 
 			$applicationFormat = $applicationProperty?->getFormat();
 
-			$applicationFormat = $applicationFormat instanceof MetadataFormats\CombinedEnum
+			$applicationFormat = $applicationFormat instanceof ToolsFormats\CombinedEnum
 				? $applicationFormat->toArray()
 				: [];
 		}

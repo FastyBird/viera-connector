@@ -22,8 +22,8 @@ use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Helpers;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Types;
+use FastyBird\Core\Tools\Helpers as ToolsHelpers;
 use FastyBird\DateTimeFactory;
-use FastyBird\Library\Application\Helpers as ApplicationHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use Fig\Http\Message\RequestMethodInterface;
 use GuzzleHttp;
@@ -1420,7 +1420,7 @@ final class TelevisionApi
 						[
 							'source' => MetadataTypes\Sources\Connector::VIERA->value,
 							'type' => 'television-api',
-							'exception' => ApplicationHelpers\Logger::buildException($ex),
+							'exception' => ToolsHelpers\Logger::buildException($ex),
 							'device' => [
 								'identifier' => $this->identifier,
 							],
@@ -1447,7 +1447,7 @@ final class TelevisionApi
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'television-api',
-					'exception' => ApplicationHelpers\Logger::buildException($ex),
+					'exception' => ToolsHelpers\Logger::buildException($ex),
 					'device' => [
 						'identifier' => $this->identifier,
 					],
@@ -1525,7 +1525,7 @@ final class TelevisionApi
 				[
 					'source' => MetadataTypes\Sources\Connector::VIERA->value,
 					'type' => 'television-api',
-					'exception' => ApplicationHelpers\Logger::buildException($ex),
+					'exception' => ToolsHelpers\Logger::buildException($ex),
 					'device' => [
 						'identifier' => $this->identifier,
 					],

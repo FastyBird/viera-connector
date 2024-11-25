@@ -15,7 +15,7 @@ use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Subscribers;
 use FastyBird\Connector\Viera\Tests;
 use FastyBird\Connector\Viera\Writers;
-use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
+use FastyBird\Core\Application\Exceptions as ApplicationExceptions;
 use Nette;
 
 final class VieraExtensionTest extends Tests\Cases\Unit\BaseTestCase

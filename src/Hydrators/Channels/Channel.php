@@ -18,9 +18,9 @@ namespace FastyBird\Connector\Viera\Hydrators\Channels;
 use Doctrine\Persistence;
 use FastyBird\Connector\Viera\Entities;
 use FastyBird\Connector\Viera\Schemas;
+use FastyBird\Core\Tools\Exceptions as ToolsExceptions;
 use FastyBird\JsonApi\Exceptions as JsonApiExceptions;
 use FastyBird\JsonApi\Helpers;
-use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
 use FastyBird\Module\Devices\Hydrators as DevicesHydrators;
 use FastyBird\Module\Devices\Models as DevicesModels;
 use Fig\Http\Message\StatusCodeInterface;
@@ -58,8 +58,8 @@ final class Channel extends DevicesHydrators\Channels\Channel
 	}
 
 	/**
-	 * @throws ApplicationExceptions\InvalidState
 	 * @throws JsonApiExceptions\JsonApiError
+	 * @throws ToolsExceptions\InvalidState
 	 */
 	protected function hydrateDeviceRelationship(
 		JsonAPIDocument\Objects\IRelationshipObject $relationship,

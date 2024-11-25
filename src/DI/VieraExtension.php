@@ -30,10 +30,10 @@ use FastyBird\Connector\Viera\Schemas;
 use FastyBird\Connector\Viera\Services;
 use FastyBird\Connector\Viera\Subscribers;
 use FastyBird\Connector\Viera\Writers;
-use FastyBird\Library\Application\Boot as ApplicationBoot;
-use FastyBird\Library\Exchange\DI as ExchangeDI;
-use FastyBird\Library\Metadata;
-use FastyBird\Library\Metadata\Documents as MetadataDocuments;
+use FastyBird\Core\Application\Boot as ApplicationBoot;
+use FastyBird\Core\Application\DI as ApplicationDI;
+use FastyBird\Core\Application\Documents as ApplicationDocuments;
+use FastyBird\Core\Exchange\DI as ExchangeDI;
 use FastyBird\Module\Devices\DI as DevicesDI;
 use Nette\Bootstrap;
 use Nette\DI;
@@ -355,7 +355,7 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 		 * APPLICATION DOCUMENTS
 		 */
 
-		$services = $builder->findByTag(Metadata\DI\MetadataExtension::DRIVER_TAG);
+		$services = $builder->findByTag(ApplicationDI\ApplicationExtension::DRIVER_TAG);
 
 		if ($services !== []) {
 			$services = array_keys($services);
@@ -370,7 +370,7 @@ class VieraExtension extends DI\CompilerExtension implements Translation\DI\Tran
 				);
 
 				$documentAttributeDriverChainService = $builder->getDefinitionByType(
-					MetadataDocuments\Mapping\Driver\MappingDriverChain::class,
+					ApplicationDocuments\Mapping\Driver\MappingDriverChain::class,
 				);
 
 				if ($documentAttributeDriverChainService instanceof DI\Definitions\ServiceDefinition) {

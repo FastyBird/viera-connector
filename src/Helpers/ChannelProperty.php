@@ -20,8 +20,8 @@ use FastyBird\Connector\Viera;
 use FastyBird\Connector\Viera\Exceptions;
 use FastyBird\Connector\Viera\Queries;
 use FastyBird\Connector\Viera\Types;
-use FastyBird\Library\Application\Exceptions as ApplicationExceptions;
-use FastyBird\Library\Application\Helpers as ApplicationHelpers;
+use FastyBird\Core\Tools\Exceptions as ToolsExceptions;
+use FastyBird\Core\Tools\Helpers as ToolsHelpers;
 use FastyBird\Library\Metadata\Types as MetadataTypes;
 use FastyBird\Module\Devices\Entities as DevicesEntities;
 use FastyBird\Module\Devices\Models as DevicesModels;
@@ -36,7 +36,7 @@ final readonly class ChannelProperty
 		private DevicesModels\Entities\Channels\ChannelsRepository $channelsRepository,
 		private DevicesModels\Entities\Channels\Properties\PropertiesRepository $channelsPropertiesRepository,
 		private DevicesModels\Entities\Channels\Properties\PropertiesManager $channelsPropertiesManager,
-		private ApplicationHelpers\Database $databaseHelper,
+		private ToolsHelpers\Database $databaseHelper,
 		private Viera\Logger $logger,
 	)
 	{
@@ -46,10 +46,10 @@ final readonly class ChannelProperty
 	 * @param class-string<DevicesEntities\Channels\Properties\Variable|DevicesEntities\Channels\Properties\Dynamic> $type
 	 * @param string|array<int, string>|array<int, string|int|float|array<int, string|int|float>|Utils\ArrayHash|null>|array<int, array<int, string|array<int, string|int|float|bool>|Utils\ArrayHash|null>>|null $format
 	 *
-	 * @throws ApplicationExceptions\InvalidState
-	 * @throws ApplicationExceptions\Runtime
 	 * @throws DBAL\Exception
 	 * @throws Exceptions\InvalidArgument
+	 * @throws ToolsExceptions\InvalidState
+	 * @throws ToolsExceptions\Runtime
 	 */
 	public function create(
 		string $type,
